@@ -120,5 +120,8 @@ class SaveCallback(TrainerCallback):
             control.should_save = True
             logger.info(f"Saving model.")
             self.min_score_to_save = metric_value
+            kwargs["model"].config.update({"best_cv_f1": metric_value})
         else:
             logger.info("Not saving model.")
+
+            
