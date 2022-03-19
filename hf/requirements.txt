@@ -8,3 +8,4 @@ sentencepiece
 kaggle
 wandb
 bitsandbytes-cuda113
+scikit-learn
