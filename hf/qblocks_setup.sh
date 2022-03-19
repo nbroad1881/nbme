@@ -1,6 +1,6 @@
 #!/bin/bash 
 
-cd hf
+cd nbme/hf
 
 pip uninstall -y torch torchaudio torchtext torchvision
 pip install -r requirements.txt -q
