@@ -5,8 +5,8 @@ max_seq_length:
 padding: no
 stride: 0
 model_name_or_path: "roberta-base"
-data_dir: "./"
-min_score_to_save: 0.8
+data_dir: "data"
+min_score_to_save: 0.5
 masking_prob: 0.05
 reinit_layers: 2
 layer_norm_eps: 1e-7
