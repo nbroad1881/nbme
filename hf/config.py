@@ -14,23 +14,24 @@ def fix_e(cfg):
     for k, v in cfg.items():
         if isinstance(v, dict):
             for kk, vv in v.items():
-                cfg[k][kk] = fix(vv)
-        else:
+                if isinstance(vv, str):
+                    cfg[k][kk] = fix(vv)
+        elif isinstance(v, str):
             cfg[k] = fix(v)
     
     return cfg
     
     
 
-def remove_defaults(d):
+def remove_defaults(cfg):
     to_remove = []
-    for key, value in d.items():
+    args = cfg["training_arguments"]
+    for key, value in args.items():
         if value == "<default>":
             to_remove.append(key)
     
     for key in to_remove:
-        del d[key]
-    return d
+        del args[key]
 
 def get_configs(filename, filepath="./configs"):
 
@@ -39,7 +40,7 @@ def get_configs(filename, filepath="./configs"):
         cfg = yaml.safe_load(fp)
 
     
-    cfg = remove_defaults(cfg)
+    remove_defaults(cfg)
     cfg = fix_e(cfg)
 
     # cfg["training_arguments"]["dataloader_num_workers"] = cfg["num_proc"]
