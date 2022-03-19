@@ -1,0 +1,10 @@
+torch==1.11.0+cu113 -f https://download.pytorch.org/whl/cu113/torch_stable.html
+git+https://github.com/huggingface/transformers.git
+git+https://github.com/huggingface/datasets.git
+datasets
+transformers
+seqeval
+sentencepiece
+kaggle
+wandb
+bitsandbytes-cuda113
