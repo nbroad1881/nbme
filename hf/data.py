@@ -20,7 +20,7 @@ def create_folds(df, kfolds=8):
     gkf = GroupKFold(n_splits=kfolds)
     groups = df["pn_num"]
     df["fold"] = -1
-    for fold, (val_idx, _) in enumerate(gkf.split(df, y=df["location"], groups=groups)):
+    for fold, (_, val_idx) in enumerate(gkf.split(df, y=df["location"], groups=groups)):
         df.loc[val_idx, "fold"] = fold
 
     return df
@@ -184,57 +184,67 @@ def fix_annotations(df):
 
     return df
 
+
 def location_to_ints(location):
     to_return = []
-    
+
     for loc_str in location:
         loc_strs = loc_str.split(";")
-        
+
         for loc in loc_strs:
             start, end = loc.split()
             to_return.append((int(start), int(end)))
-        
+
     return to_return
 
+
 def process_feature_text(text):
-    text = text.replace("-OR-", ";")
+    text = text.replace("-OR-", " or ")
     return text.replace("-", " ")
 
+
 def tokenize(example, tokenizer, max_seq_length, padding):
-    
+
     tokenized_inputs = tokenizer(
         example["feature_text"],
         example["pn_history"],
         truncation="only_second",
         max_length=max_seq_length,
         padding=padding,
-        return_offsets_mapping=True
+        return_offsets_mapping=True,
     )
-    
+
     # labels should be float
-    labels = [0.0]*len(tokenized_inputs["input_ids"])
+    labels = [0.0] * len(tokenized_inputs["input_ids"])
     tokenized_inputs["locations"] = location_to_ints(example["location"])
     tokenized_inputs["sequence_ids"] = tokenized_inputs.sequence_ids()
-    
-    for idx, (seq_id, offsets) in enumerate(zip(tokenized_inputs["sequence_ids"], tokenized_inputs["offset_mapping"])):
+
+    for idx, (seq_id, offsets) in enumerate(
+        zip(tokenized_inputs["sequence_ids"], tokenized_inputs["offset_mapping"])
+    ):
         if seq_id is None or seq_id == 0:
-            labels[idx] = -100.0 # don't calculate loss on question part or special tokens
+            labels[
+                idx
+            ] = -100.0  # don't calculate loss on question part or special tokens
             continue
-            
+
         exit = False
         token_start, token_end = offsets
         for label_start, label_end in tokenized_inputs["locations"]:
-            if exit: 
+            if exit:
                 break
-            if token_start <= label_start < token_end or token_start < label_end <= token_end or label_start <= token_start < label_end:
-                labels[idx] = 1.0 # labels should be float
+            if (
+                token_start <= label_start < token_end
+                or token_start < label_end <= token_end
+                or label_start <= token_start < label_end
+            ):
+                labels[idx] = 1.0  # labels should be float
                 exit = True
-            
-    
+
     tokenized_inputs["labels"] = labels
-    
+
     return tokenized_inputs
-    
+
 
 @dataclass
 class DataModule:
@@ -251,48 +261,59 @@ class DataModule:
         notes_df = pd.read_csv(data_dir / "patient_notes.csv")
         train_df = pd.read_csv(data_dir / "train.csv")
 
-        train_df = train_df.merge(features_df, on=["feature_num", "case_num"], how="left")
+        train_df = train_df.merge(
+            features_df, on=["feature_num", "case_num"], how="left"
+        )
         train_df = train_df.merge(notes_df, on=["pn_num", "case_num"], how="left")
         train_df = fix_annotations(train_df)
 
         train_df = create_folds(train_df)
 
         train_df["annotation"] = [literal_eval(x) for x in train_df.annotation]
-        train_df["location"]  = [literal_eval(x) for x in train_df.location]
+        train_df["location"] = [literal_eval(x) for x in train_df.location]
 
-        train_df["feature_text"] = [process_feature_text(x) for x in train_df["feature_text"]]
-        self.train_df = train_df[train_df["annotation"].map(len)!=0].copy().reset_index(drop=True)
+        train_df["feature_text"] = [
+            process_feature_text(x) for x in train_df["feature_text"]
+        ]
+        self.train_df = (
+            train_df[train_df["annotation"].map(len) != 0].copy().reset_index(drop=True)
+        )
 
+        if self.cfg["DEBUG"]:
+            self.train_df = self.train_df.sample(n=200)
 
         if (
-            "deberta-v2" in self.run_config.tokenizer_path
-            or "deberta-v3" in self.run_config.tokenizer_path
+            "deberta-v2" in self.cfg["model_name_or_path"]
+            or "deberta-v3" in self.cfg["model_name_or_path"]
         ):
             from transformers.models.deberta_v2.tokenization_deberta_v2_fast import (
                 DebertaV2TokenizerFast,
             )
 
             self.tokenizer = DebertaV2TokenizerFast.from_pretrained(
-                self.run_config.tokenizer_path
+                self.cfg["model_name_or_path"]
             )
         else:
             self.tokenizer = AutoTokenizer.from_pretrained(
-                self.run_config.tokenizer_path
+                self.cfg["model_name_or_path"]
             )
 
     def prepare_datasets(self, fold):
 
         self.dataset = DatasetDict()
 
-        self.dataset["train"] = Dataset.from_pandas(self.train_df[self.train_df["fold"]!=fold].copy().reset_index(drop=True))
-        self.dataset['validation'] = Dataset.from_pandas(self.train_df[self.train_df["fold"]==fold].copy().reset_index(drop=True))
+        self.dataset["train"] = Dataset.from_pandas(
+            self.train_df[self.train_df["fold"] != fold].copy().reset_index(drop=True)
+        )
+        self.dataset["validation"] = Dataset.from_pandas(
+            self.train_df[self.train_df["fold"] == fold].copy().reset_index(drop=True)
+        )
 
-        
-        self.dataset["train"] =self.dataset["train"].map(
+        self.dataset["train"] = self.dataset["train"].map(
             partial(
                 tokenize,
                 tokenizer=self.tokenizer,
-                max_seq_length=self.cfg["max_seq_length"], 
+                max_seq_length=self.cfg["max_seq_length"],
                 padding=self.cfg["padding"],
             ),
             batched=False,
@@ -300,11 +321,11 @@ class DataModule:
             remove_columns=[],
         )
 
-        self.dataset['validation'] = self.dataset['validation'].map(
+        self.dataset["validation"] = self.dataset["validation"].map(
             partial(
                 tokenize,
                 tokenizer=self.tokenizer,
-                max_seq_length=self.cfg["max_seq_length"], 
+                max_seq_length=self.cfg["max_seq_length"],
                 padding=self.cfg["padding"],
             ),
             batched=False,
