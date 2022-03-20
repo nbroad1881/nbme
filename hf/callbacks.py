@@ -44,7 +44,7 @@ class NewWandbCB(WandbCallback):
             if hasattr(model, "config") and model.config is not None:
                 model_config = model.config.to_dict()
                 combined_dict = {**model_config, **combined_dict}
-            run_name = os.getenv("WANDB_NAME", args.run_name)
+            run_name = os.getenv("WANDB_NAME")
 
             if self._wandb.run is None:
                 tags = os.getenv("WANDB_TAGS", None)
@@ -124,4 +124,19 @@ class SaveCallback(TrainerCallback):
         else:
             logger.info("Not saving model.")
 
+
+class MaskingProbCallback(TrainerCallback):
+    """
+    Controls the environment variable that controls the amount of masking done.
+    This is a way to do masking while training and no masking during evaluation.
+    """
+
+    def __init__(self, masking_prob):
+        self.masking_prob = masking_prob
+
+    def on_step_begin(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
+        os.environ["MASKING_PROB"] = str(self.masking_prob)
+    
+    def on_step_end(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
+        os.environ["MASKING_PROB"] = "0"
             
