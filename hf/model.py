@@ -8,8 +8,6 @@ from torch import nn
 from transformers.file_utils import ModelOutput
 from transformers import logging
 
-from focal_loss import WeightedFocalLoss
-
 logger = logging.get_logger(__name__)
 
 
@@ -97,12 +95,13 @@ def forward(
             loss = -self.crf(logits, labels, attention_mask.bool())
         else:
             loss_fct = torch.nn.BCEWithLogitsLoss(reduction="none")
-            loss1 = loss_fct(logits1.view(-1, self.config.num_labels), labels.view(-1))
-            loss2 = loss_fct(logits2.view(-1, self.config.num_labels), labels.view(-1))
-            loss3 = loss_fct(logits3.view(-1, self.config.num_labels), labels.view(-1))
-            loss4 = loss_fct(logits4.view(-1, self.config.num_labels), labels.view(-1))
-            loss5 = loss_fct(logits5.view(-1, self.config.num_labels), labels.view(-1))
+            loss1 = loss_fct(logits1.view(-1, self.config.num_labels), labels.view(-1, self.config.num_labels))
+            loss2 = loss_fct(logits2.view(-1, self.config.num_labels), labels.view(-1, self.config.num_labels))
+            loss3 = loss_fct(logits3.view(-1, self.config.num_labels), labels.view(-1, self.config.num_labels))
+            loss4 = loss_fct(logits4.view(-1, self.config.num_labels), labels.view(-1, self.config.num_labels))
+            loss5 = loss_fct(logits5.view(-1, self.config.num_labels), labels.view(-1, self.config.num_labels))
             loss = (loss1 + loss2 + loss3 + loss4 + loss5) / 5
+            loss = torch.masked_select(loss, labels.view(-1, self.config.num_labels) > -1).mean()
     # otherwise, doing inference
     else:
         logits = self.output(sequence_output)
@@ -111,7 +110,7 @@ def forward(
 
     return TokenClassifierOutput(
         loss=loss,
-        logits=logits,
+        logits=logits.sigmoid(),
         crf=crf_output,
     )
 
