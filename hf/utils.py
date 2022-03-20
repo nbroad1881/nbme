@@ -17,7 +17,7 @@ def set_wandb_env_vars(cfg):
     os.environ["WANDB_RUN_GROUP"] = cfg["group"]
     os.environ["WANDB_JOB_TYPE"] = cfg["job_type"]
     os.environ["WANDB_NOTES"] = cfg["notes"]
-    os.environ["WANDB_TAGS"] = cfg["tags"]
+    os.environ["WANDB_TAGS"] = ",".join(cfg["tags"])
 
 
 def sigmoid(z):
@@ -29,8 +29,8 @@ def get_location_predictions(preds, dataset):
     Finds the prediction indexes at the character level.
     """
     all_predictions = []
-    for pred, offsets, seq_ids, text in zip(
-        preds, dataset["offset_mapping"], dataset["sequence_ids"], dataset["pn_history"]
+    for pred, offsets, seq_ids in zip(
+        preds, dataset["offset_mapping"], dataset["sequence_ids"]
     ):
         pred = sigmoid(pred)
         start_idx = None
@@ -63,33 +63,21 @@ def kaggle_metrics(eval_prediction, dataset):
     into the `compute_metrics` function.
     """
 
-    preds = get_location_predictions(eval_prediction.predictions, dataset)
+    pred_idxs = get_location_predictions(eval_prediction.predictions, dataset)
 
     all_labels = []
     all_preds = []
-    for preds, offsets, seq_ids, labels, text in zip(
-        eval_prediction.predictions,
-        dataset["offset_mapping"],
-        dataset["sequence_ids"],
-        dataset["labels"],
-        dataset["text"],
+    for preds, locations, text in zip(
+        pred_idxs,
+        dataset["locations"],
+        dataset["pn_history"],
     ):
 
-        num_chars = max(list(chain(*offsets)))
+        num_chars = len(text)
         char_labels = np.zeros((num_chars), dtype=bool)
 
-        for (tok_start, tok_end), s_id, label in zip(offsets, seq_ids, labels):
-            if s_id is None or s_id == 0:  # ignore question part of input
-                continue
-            if int(label) == 1:
-
-                char_labels[tok_start:tok_end] = 1
-                if (
-                    text[tok_start].isspace()
-                    and tok_start > 0
-                    and not char_labels[tok_start - 1]
-                ):
-                    char_labels[tok_start] = 0
+        for start, end in locations:
+            char_labels[start:end] = 1
 
         char_preds = np.zeros((num_chars))
 
@@ -115,6 +103,9 @@ class DataCollatorWithMasking(DataCollatorForTokenClassification):
     """
     Data collator that will dynamically pad the inputs received, as well as the labels.
     Have to modify to make label tensors float and not int.
+    This must be used with the MaskingProbCallback that sets the environment
+    variable at the beginning and end of the training step. This callback ensures
+    that there is no masking done during evaluation.
     """
 
     tokenizer = None
@@ -123,20 +114,20 @@ class DataCollatorWithMasking(DataCollatorForTokenClassification):
     pad_to_multiple_of = None
     label_pad_token_id = -100
     return_tensors = "pt"
-    masking_prob: float = None
 
     def torch_call(self, features):
         batch = super().torch_call(features)
         label_name = "label" if "label" in features[0].keys() else "labels"
 
-        batch[label_name] = torch.tensor(batch[label_name], dtype=torch.float32)
+        batch[label_name] = batch[label_name].type(torch.float32)
 
-        if self.masking_prob is not None:
-            batch = self.mask_tokens(batch)
+        masking_prob = os.getenv("MASKING_PROB")
+        if masking_prob is not None:
+            batch = self.mask_tokens(batch, float(masking_prob))
 
         return batch
 
-    def mask_tokens(self, batch):
+    def mask_tokens(self, batch, masking_prob):
         """
         Mask the inputs at `masking_prob` probability.
         The loss from masked tokens will still be included.
@@ -148,7 +139,7 @@ class DataCollatorWithMasking(DataCollatorForTokenClassification):
         ]
         special_tokens_mask = torch.tensor(special_tokens_mask, dtype=torch.bool)
 
-        probability_matrix = torch.full(batch["input_ids"].shape, self.masking_prob)
+        probability_matrix = torch.full(batch["input_ids"].shape, masking_prob)
         probability_matrix.masked_fill_(special_tokens_mask, value=0.0)
         masked_indices = torch.bernoulli(probability_matrix).bool()
 
@@ -170,12 +161,12 @@ def reinit_model_weights(model, n_layers, config):
     else:
         encoder_layers = model.encoder.layer
         reinit_layers(encoder_layers, n_layers, config)
- 
- 
+
+
 def reinit_layers(layers, n_layers, config):
 
     if config.model_type == "bart":
-        std = config.init_std    
+        std = config.init_std
     else:
         std = config.initializer_range
 
