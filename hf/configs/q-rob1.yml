@@ -1,4 +1,5 @@
 # RunArguments
+DEBUG: no
 k_folds: 8
 num_proc: 4
 max_seq_length: 
@@ -6,9 +7,9 @@ padding: no
 stride: 0
 model_name_or_path: "roberta-base"
 data_dir: "data"
-min_score_to_save: 0.5
-masking_prob: 0.05
-reinit_layers: 2
+min_score_to_save: 0.85
+masking_prob: 0.1
+reinit_layers: 6
 layer_norm_eps: 1e-7
 dropout: 0.1
 use_crf: no
@@ -30,7 +31,7 @@ entity: nbroad
 group: 
 tags:
   - ner
-  - deberta-v3
+  - rob-l
 notes: >
   This run is a test
 job_type: 
@@ -39,7 +40,7 @@ job_type:
 # <default> means use default value
 training_arguments:
 # output
-  output_dir:
+  output_dir: 
   overwrite_output_dir: no
 
 # dataloader
@@ -113,9 +114,9 @@ training_arguments:
 
 # misc
   report_to: "wandb"
-  debug: no
 
 # rarely used
+  debug: <default>
   prediction_loss_only: <default>
   per_gpu_train_batch_size: <default>
   per_gpu_eval_batch_size: <default>
@@ -145,5 +146,4 @@ training_arguments:
   skip_memory_metrics: <default>
   use_legacy_prediction_loop: <default>
   fp16_backend: <default>
-  _n_gpu: <default>
   mp_parameters: <default>

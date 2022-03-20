@@ -5,10 +5,10 @@ num_proc: 4
 max_seq_length: 
 padding: no
 stride: 0
-model_name_or_path: "roberta-base"
-data_dir: "./"
+model_name_or_path: "microsoft/deberta-v3-large"
+data_dir: "data"
 min_score_to_save: 0.85
-masking_prob: 0.05
+masking_prob: 0.15
 reinit_layers: 2
 layer_norm_eps: 1e-7
 dropout: 0.1
@@ -28,10 +28,10 @@ use_sift: no
 # WandB Config
 project: nbme-real
 entity: nbroad
-group: none
+group: no-pl
 tags:
   - ner
-  - deberta-v3
+  - deb-v3-l
 notes: >
   This run is a test
 job_type: train
@@ -44,7 +44,7 @@ training_arguments:
   overwrite_output_dir: no
 
 # dataloader
-  dataloader_num_workers: 4
+  dataloader_num_workers: 2
   dataloader_pin_memory: yes
 
 # training
@@ -53,11 +53,11 @@ training_arguments:
   seed: 18
 
 # hyperparams
-  per_device_train_batch_size: 8
-  gradient_accumulation_steps: 1
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 4
   gradient_checkpointing: no
   group_by_length: yes
-  learning_rate: 3e-5
+  learning_rate: 1e-5
   weight_decay: .01
 
 # schedule + steps
@@ -70,7 +70,7 @@ training_arguments:
 # optimizer
   adam_beta1: 0.9
   adam_beta2: 0.999
-  adam_epsilon: 1e-8
+  adam_epsilon: 1e-6
   max_grad_norm: 1.0
   optim: 'adamw_hf'
   adafactor: no
@@ -82,7 +82,7 @@ training_arguments:
   logging_dir: <default>
   logging_strategy: steps
   logging_first_step: no
-  logging_steps: 100
+  logging_steps: 50
   logging_nan_inf_filter: <default>
 
 # dtype
@@ -102,9 +102,9 @@ training_arguments:
 # evaluation
   do_eval: yes
   evaluation_strategy: "steps"
-  eval_steps: 300
+  eval_steps: 500
   per_device_eval_batch_size: 16
-  do_predict:
+  do_predict: no
   
 # hub
   push_to_hub: yes
