@@ -22,7 +22,7 @@ chmod 600 ~/.kaggle/kaggle.json
 
 mkdir data
 kaggle competitions download -c nbme-score-clinical-patient-notes -p data
-unzip data/nbme-score-clinical-patient-notes.zip
+unzip data/nbme-score-clinical-patient-notes.zip -d data
 
 TRANSFORMERS_PATH="$(python -c 'import transformers; from pathlib import Path; print(Path(transformers.__file__).parent)')"
 cp convert_slow_tokenizer.py $TRANSFORMERS_PATH/
