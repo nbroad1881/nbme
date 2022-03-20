@@ -2,8 +2,8 @@
 
 cd nbme/hf
 
-pip uninstall -y torch torchaudio torchtext torchvision
-pip install torch==1.11.0+cu113 -f https://download.pytorch.org/whl/cu113/torch_stable.html
+# pip uninstall -y torch torchaudio torchtext torchvision
+# pip install torch==1.11.0+cu113 -f https://download.pytorch.org/whl/cu113/torch_stable.html
 pip install -r requirements.txt -q
 
 read -s -p "Upload hf.txt: " ignore
@@ -11,7 +11,7 @@ mkdir ~/.huggingface
 mv hf.txt ~/.huggingface/token
 git config --global credential.helper store
 
-curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
+# curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
 sudo apt-get install git-lfs
 git lfs install
 
@@ -22,7 +22,7 @@ chmod 600 ~/.kaggle/kaggle.json
 
 mkdir data
 kaggle competitions download -c nbme-score-clinical-patient-notes -p data
-unzip data/nbme-score-clinical-patient-notes.zip
+unzip data/nbme-score-clinical-patient-notes.zip -d data
 
 TRANSFORMERS_PATH="$(python -c 'import transformers; from pathlib import Path; print(Path(transformers.__file__).parent)')"
 cp convert_slow_tokenizer.py $TRANSFORMERS_PATH/
