@@ -1,5 +1,4 @@
 import os
-from itertools import chain
 from dataclasses import dataclass
 
 import torch
@@ -12,12 +11,12 @@ logger = logging.get_logger(__name__)
 
 
 def set_wandb_env_vars(cfg):
-    os.environ["WANDB_ENTITY"] = cfg["entity"]
-    os.environ["WANDB_PROJECT"] = cfg["project"]
-    os.environ["WANDB_RUN_GROUP"] = cfg["group"]
-    os.environ["WANDB_JOB_TYPE"] = cfg["job_type"]
-    os.environ["WANDB_NOTES"] = cfg["notes"]
-    os.environ["WANDB_TAGS"] = ",".join(cfg["tags"])
+    os.environ["WANDB_ENTITY"] = cfg.get("entity", "")
+    os.environ["WANDB_PROJECT"] = cfg.get("project", "")
+    os.environ["WANDB_RUN_GROUP"] = cfg.get("group", "")
+    os.environ["WANDB_JOB_TYPE"] = cfg.get("job_type", "")
+    os.environ["WANDB_NOTES"] = cfg.get("notes", "")
+    os.environ["WANDB_TAGS"] = ",".join(cfg.get("tags", ""))
 
 
 def sigmoid(z):
@@ -32,7 +31,6 @@ def get_location_predictions(preds, dataset):
     for pred, offsets, seq_ids in zip(
         preds, dataset["offset_mapping"], dataset["sequence_ids"]
     ):
-        pred = sigmoid(pred)
         start_idx = None
         current_preds = []
         for p, o, s_id in zip(pred, offsets, seq_ids):
@@ -177,10 +175,11 @@ def reinit_layers(layers, n_layers, config):
                 module.weight.data.normal_(mean=0.0, std=std)
                 if module.bias is not None:
                     module.bias.data.zero_()
-            elif isinstance(module, torch.nn.Embedding):
-                module.weight.data.normal_(mean=0.0, std=std)
-                if module.padding_idx is not None:
-                    module.weight.data[module.padding_idx].zero_()
+            # The embeddings shouldn't be modified
+            # elif isinstance(module, torch.nn.Embedding):
+            #     module.weight.data.normal_(mean=0.0, std=std)
+            #     if module.padding_idx is not None:
+            #         module.weight.data[module.padding_idx].zero_()
             elif isinstance(module, torch.nn.LayerNorm):
                 module.bias.data.zero_()
                 module.weight.data.fill_(1.0)
