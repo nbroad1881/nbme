@@ -223,23 +223,18 @@ def tokenize(example, tokenizer, max_seq_length, padding):
         zip(tokenized_inputs["sequence_ids"], tokenized_inputs["offset_mapping"])
     ):
         if seq_id is None or seq_id == 0:
-            labels[
-                idx
-            ] = -100.0  # don't calculate loss on question part or special tokens
+            # don't calculate loss on question part or special tokens
+            labels[idx] = -100.0
             continue
 
-        exit = False
         token_start, token_end = offsets
         for label_start, label_end in tokenized_inputs["locations"]:
-            if exit:
-                break
             if (
                 token_start <= label_start < token_end
                 or token_start < label_end <= token_end
                 or label_start <= token_start < label_end
             ):
                 labels[idx] = 1.0  # labels should be float
-                exit = True
 
     tokenized_inputs["labels"] = labels
 
