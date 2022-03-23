@@ -8,6 +8,8 @@ from torch import nn
 from transformers.file_utils import ModelOutput
 from transformers import logging
 
+from focal_loss import FocalLoss
+
 logger = logging.get_logger(__name__)
 
 
@@ -50,7 +52,7 @@ def __init__(self, config):
         self.crf = CRF(self.run_config.num_classes, batch_first=True)
 
     if self.run_config and self.run_config.use_focal_loss:
-        self.loss_fn = WeightedFocalLoss()
+        self.loss_fn = FocalLoss()
 
 
 def forward(
@@ -95,13 +97,30 @@ def forward(
             loss = -self.crf(logits, labels, attention_mask.bool())
         else:
             loss_fct = torch.nn.BCEWithLogitsLoss(reduction="none")
-            loss1 = loss_fct(logits1.view(-1, self.config.num_labels), labels.view(-1, self.config.num_labels))
-            loss2 = loss_fct(logits2.view(-1, self.config.num_labels), labels.view(-1, self.config.num_labels))
-            loss3 = loss_fct(logits3.view(-1, self.config.num_labels), labels.view(-1, self.config.num_labels))
-            loss4 = loss_fct(logits4.view(-1, self.config.num_labels), labels.view(-1, self.config.num_labels))
-            loss5 = loss_fct(logits5.view(-1, self.config.num_labels), labels.view(-1, self.config.num_labels))
+            loss1 = loss_fct(
+                logits1.view(-1, self.config.num_labels),
+                labels.view(-1, self.config.num_labels),
+            )
+            loss2 = loss_fct(
+                logits2.view(-1, self.config.num_labels),
+                labels.view(-1, self.config.num_labels),
+            )
+            loss3 = loss_fct(
+                logits3.view(-1, self.config.num_labels),
+                labels.view(-1, self.config.num_labels),
+            )
+            loss4 = loss_fct(
+                logits4.view(-1, self.config.num_labels),
+                labels.view(-1, self.config.num_labels),
+            )
+            loss5 = loss_fct(
+                logits5.view(-1, self.config.num_labels),
+                labels.view(-1, self.config.num_labels),
+            )
             loss = (loss1 + loss2 + loss3 + loss4 + loss5) / 5
-            loss = torch.masked_select(loss, labels.view(-1, self.config.num_labels) > -1).mean()
+            loss = torch.masked_select(
+                loss, labels.view(-1, self.config.num_labels) > -1
+            ).mean()
     # otherwise, doing inference
     else:
         logits = self.output(sequence_output)
@@ -115,30 +134,7 @@ def forward(
     )
 
 
-@classmethod
-def from_pretrained(cls, *args, **kwargs):
-    cls.PreTrainedModel = kwargs.pop("PreTrainedModel")
-    cls.ModelClass = kwargs.pop("ModelClass")
-    cls.backbone_name = kwargs["config"].model_type
-
-    cls.run_config = None
-    if "run_config" in kwargs:
-        cls.run_config = kwargs.pop("run_config")
-
-    # changes deberta-v2 --> deberta
-    if "deberta" in cls.backbone_name:
-        cls.backbone_name = "deberta"
-
-    if cls.backbone_name == "bart":
-        cls.backbone_name = "model"
-
-    if cls.backbone_name == "big_bird":
-        cls.backbone_name = "bert"
-
-    return super(cls.PreTrainedModel, cls).from_pretrained(*args, **kwargs)
-
-
-def get_model(config, return_classes=False):
+def get_model(config, init=False):
     model_type = type(config).__name__[: -len("config")]
     if model_type == "Bart":
         name = f"{model_type}PretrainedModel"
@@ -151,25 +147,31 @@ def get_model(config, return_classes=False):
     model = type(
         "CustomModel",
         (PreTrainedModel,),
-        {"__init__": __init__, "forward": forward, "from_pretrained": from_pretrained},
+        {"__init__": __init__, "forward": forward},
     )
 
     model._keys_to_ignore_on_load_unexpected = [r"pooler"]
     model._keys_to_ignore_on_load_missing = [r"position_ids"]
 
-    if return_classes:
-        return PreTrainedModel, ModelClass, model
+    model.PreTrainedModel = PreTrainedModel
+    model.ModelClass = ModelClass
+    model.backbone_name = config.model_type
+
+    # changes deberta-v2 --> deberta
+    if "deberta" in model.backbone_name:
+        model.backbone_name = "deberta"
+
+    if init:
+        return model(config)
     return model
 
 
 def get_pretrained(model_name_or_path, config, **kwargs):
 
-    PreTrainedModel, ModelClass, model = get_model(config, return_classes=True)
+    model = get_model(config, init=False)
 
     return model.from_pretrained(
         pretrained_model_name_or_path=model_name_or_path,
-        PreTrainedModel=PreTrainedModel,
-        ModelClass=ModelClass,
         config=config,
         **kwargs,
     )
