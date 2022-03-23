@@ -273,6 +273,7 @@ class DataModule:
             process_feature_text(x) for x in train_df["feature_text"]
         ]
 
+        self.train_df = train_df
         if self.cfg["DEBUG"]:
             self.train_df = self.train_df.sample(n=200)
 
