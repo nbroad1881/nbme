@@ -237,7 +237,7 @@ def tokenize(example, tokenizer, max_seq_length, padding):
                 ):
                     labels[idx] = 1.0  # labels should be float
 
-        tokenized_inputs["labels"] = labels
+    tokenized_inputs["labels"] = labels
 
     return tokenized_inputs
 
