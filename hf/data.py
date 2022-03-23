@@ -219,24 +219,25 @@ def tokenize(example, tokenizer, max_seq_length, padding):
     tokenized_inputs["locations"] = location_to_ints(example["location"])
     tokenized_inputs["sequence_ids"] = tokenized_inputs.sequence_ids()
 
-    for idx, (seq_id, offsets) in enumerate(
-        zip(tokenized_inputs["sequence_ids"], tokenized_inputs["offset_mapping"])
-    ):
-        if seq_id is None or seq_id == 0:
-            # don't calculate loss on question part or special tokens
-            labels[idx] = -100.0
-            continue
+    if len(tokenized_inputs["locations"]) > 0:
+        for idx, (seq_id, offsets) in enumerate(
+            zip(tokenized_inputs["sequence_ids"], tokenized_inputs["offset_mapping"])
+        ):
+            if seq_id is None or seq_id == 0:
+                # don't calculate loss on question part or special tokens
+                labels[idx] = -100.0
+                continue
 
-        token_start, token_end = offsets
-        for label_start, label_end in tokenized_inputs["locations"]:
-            if (
-                token_start <= label_start < token_end
-                or token_start < label_end <= token_end
-                or label_start <= token_start < label_end
-            ):
-                labels[idx] = 1.0  # labels should be float
+            token_start, token_end = offsets
+            for label_start, label_end in tokenized_inputs["locations"]:
+                if (
+                    token_start <= label_start < token_end
+                    or token_start < label_end <= token_end
+                    or label_start <= token_start < label_end
+                ):
+                    labels[idx] = 1.0  # labels should be float
 
-    tokenized_inputs["labels"] = labels
+        tokenized_inputs["labels"] = labels
 
     return tokenized_inputs
 
@@ -253,6 +254,7 @@ class DataModule:
         data_dir = Path(self.cfg["data_dir"])
 
         features_df = pd.read_csv(data_dir / "features.csv")
+        features_df.loc[27, "feature_text"] = "Last-Pap-smear-1-year-ago"
         notes_df = pd.read_csv(data_dir / "patient_notes.csv")
         train_df = pd.read_csv(data_dir / "train.csv")
 
@@ -270,9 +272,6 @@ class DataModule:
         train_df["feature_text"] = [
             process_feature_text(x) for x in train_df["feature_text"]
         ]
-        self.train_df = (
-            train_df[train_df["annotation"].map(len) != 0].copy().reset_index(drop=True)
-        )
 
         if self.cfg["DEBUG"]:
             self.train_df = self.train_df.sample(n=200)
