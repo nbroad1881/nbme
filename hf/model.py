@@ -46,12 +46,12 @@ def __init__(self, config):
     self.dropout5 = nn.Dropout(0.5)
     self.output = nn.Linear(config.hidden_size, config.num_labels)
 
-    if self.run_config and self.run_config.use_crf:
+    if config.get("use_crf"):
         from torchcrf import CRF
 
-        self.crf = CRF(self.run_config.num_classes, batch_first=True)
+        self.crf = CRF(config.num_labels, batch_first=True)
 
-    if self.run_config and self.run_config.use_focal_loss:
+    if config.get("use_focal_loss"):
         self.loss_fn = FocalLoss()
 
 
@@ -87,7 +87,7 @@ def forward(
 
         logits = (logits1 + logits2 + logits3 + logits4 + logits5) / 5
 
-        if self.run_config and self.run_config.use_crf:
+        if self.config and self.config.use_crf:
 
             mask = labels > -1
             labels = labels * mask
@@ -124,7 +124,7 @@ def forward(
     # otherwise, doing inference
     else:
         logits = self.output(sequence_output)
-        if self.run_config and self.run_config.use_crf:
+        if self.config and self.config.use_crf:
             crf_output = self.crf.decode(logits, attention_mask.bool())
 
     return TokenClassifierOutput(
