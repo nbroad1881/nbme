@@ -46,12 +46,12 @@ def __init__(self, config):
     self.dropout5 = nn.Dropout(0.5)
     self.output = nn.Linear(config.hidden_size, config.num_labels)
 
-    if config.get("use_crf"):
+    if config.to_dict().get("use_crf"):
         from torchcrf import CRF
 
         self.crf = CRF(config.num_labels, batch_first=True)
 
-    if config.get("use_focal_loss"):
+    if config.to_dict().get("use_focal_loss"):
         self.loss_fn = FocalLoss()
 
 
