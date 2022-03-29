@@ -6,7 +6,7 @@ max_seq_length:
 padding: no
 stride: 0
 model_name_or_path: "roberta-large"
-data_dir: "./"
+data_dir: "./data"
 min_score_to_save: 0.87
 masking_prob: 0.1
 reinit_layers: 6
