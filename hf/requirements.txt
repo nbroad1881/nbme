@@ -1,10 +1,8 @@
 git+https://github.com/huggingface/transformers.git
 git+https://github.com/huggingface/datasets.git
-datasets
-transformers
 seqeval
 sentencepiece
 kaggle
 wandb
-bitsandbytes-cuda113
+bitsandbytes-cuda111
 scikit-learn
