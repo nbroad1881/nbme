@@ -19,10 +19,6 @@ def set_wandb_env_vars(cfg):
     os.environ["WANDB_TAGS"] = ",".join(cfg.get("tags", ""))
 
 
-def sigmoid(z):
-    return 1 / (1 + np.exp(-z))
-
-
 def get_location_predictions(preds, dataset):
     """
     Finds the prediction indexes at the character level.
@@ -77,7 +73,7 @@ def kaggle_metrics(eval_prediction, dataset):
         for start, end in locations:
             char_labels[start:end] = 1
 
-        char_preds = np.zeros((num_chars))
+        char_preds = np.zeros((num_chars), dtype=bool)
 
         for start_idx, end_idx in preds:
             char_preds[start_idx:end_idx] = 1
@@ -150,39 +146,41 @@ class DataCollatorWithMasking(DataCollatorForTokenClassification):
 
 def reinit_model_weights(model, n_layers, config):
 
-    if config.model_type == "bart":
-        encoder_layers = model.encoder.layers
-        decoder_layers = model.decoder.layers
-
-        reinit_layers(encoder_layers, n_layers, config)
-        reinit_layers(decoder_layers, n_layers, config)
-    else:
-        encoder_layers = model.encoder.layer
-        reinit_layers(encoder_layers, n_layers, config)
-
-
-def reinit_layers(layers, n_layers, config):
-
+    backbone = model.backbone
     if config.model_type == "bart":
         std = config.init_std
     else:
         std = config.initializer_range
 
-    logger.info(f"Reinitializing last {n_layers} layers in the encoder.")
+    if config.model_type == "bart":
+        encoder_layers = backbone.encoder.layers
+        decoder_layers = backbone.decoder.layers
+
+        reinit_layers(encoder_layers, n_layers, config, std)
+        reinit_layers(decoder_layers, n_layers, config, std)
+    else:
+        encoder_layers = backbone.encoder.layer
+        reinit_layers(encoder_layers, n_layers, config, std)
+
+    reinit_modules([model.output], std)
+
+def reinit_layers(layers, n_layers, std):
     for layer in layers[-n_layers:]:
-        for module in layer.modules():
-            if isinstance(module, torch.nn.Linear):
-                module.weight.data.normal_(mean=0.0, std=std)
-                if module.bias is not None:
-                    module.bias.data.zero_()
-            # The embeddings shouldn't be modified
-            # elif isinstance(module, torch.nn.Embedding):
-            #     module.weight.data.normal_(mean=0.0, std=std)
-            #     if module.padding_idx is not None:
-            #         module.weight.data[module.padding_idx].zero_()
-            elif isinstance(module, torch.nn.LayerNorm):
+        reinit_modules(layer.modules(), std)
+
+def reinit_modules(modules, std, reinit_embeddings=False):
+    for module in modules:
+        if isinstance(module, torch.nn.Linear):
+            module.weight.data.normal_(mean=0.0, std=std)
+            if module.bias is not None:
                 module.bias.data.zero_()
-                module.weight.data.fill_(1.0)
+        elif reinit_embeddings and isinstance(module, torch.nn.Embedding):
+            module.weight.data.normal_(mean=0.0, std=std)
+            if module.padding_idx is not None:
+                module.weight.data[module.padding_idx].zero_()
+        elif isinstance(module, torch.nn.LayerNorm):
+            module.bias.data.zero_()
+            module.weight.data.fill_(1.0)
 
 
 def layerwise_learning_rate(model, lr=3e-5, wd=0.01, alpha=0.8):
@@ -197,34 +195,16 @@ def layerwise_learning_rate(model, lr=3e-5, wd=0.01, alpha=0.8):
 
     optimizer_grouped_parameters = []
 
-    no_decay = ["bias", "LayerNorm.weight"]
-    for layer in layers:
-        lr *= alpha
-        optimizer_grouped_parameters += [
-            {
-                "params": [
-                    p
-                    for n, p in layer.named_parameters()
-                    if not any(nd in n for nd in no_decay)
-                ],
-                "weight_decay": wd,
-                "lr": lr,
-            },
-            {
-                "params": [
-                    p
-                    for n, p in layer.named_parameters()
-                    if any(nd in n for nd in no_decay)
-                ],
-                "weight_decay": 0.0,
-                "lr": lr,
-            },
-        ]
+    for i, layer in enumerate(layers):
+        # This keeps top layer = lr
+        if i > 0:
+            lr *= alpha
+        optimizer_grouped_parameters += uniform_learning_rate(layer, wd)
 
     return optimizer_grouped_parameters
 
 
-def uniform_learning_rate(model, wd=0.01):
+def uniform_learning_rate(model, lr, wd=0.01):
 
     no_decay = ["bias", "LayerNorm.weight"]
     return [
@@ -235,6 +215,7 @@ def uniform_learning_rate(model, wd=0.01):
                 if not any(nd in n for nd in no_decay)
             ],
             "weight_decay": wd,
+            "lr": lr,
         },
         {
             "params": [
@@ -243,5 +224,6 @@ def uniform_learning_rate(model, wd=0.01):
                 if any(nd in n for nd in no_decay)
             ],
             "weight_decay": 0.0,
+            "lr": lr,
         },
     ]
