@@ -62,12 +62,11 @@ if __name__ == "__main__":
             }
         )
 
-        model = get_pretrained(cfg["model_name_or_path"], model_config)
+        model = get_pretrained(model_config, cfg["model_name_or_path"])
 
         if cfg["reinit_layers"] > 0:
-            backbone_name = model.backbone_name
             reinit_model_weights(
-                getattr(model, backbone_name), cfg["reinit_layers"], model_config
+                model, cfg["reinit_layers"], model_config
             )
 
         data_collator = DataCollatorWithMasking(
