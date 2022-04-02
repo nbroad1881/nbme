@@ -132,6 +132,7 @@ class MaskingProbCallback(TrainerCallback):
     """
 
     def __init__(self, masking_prob):
+        super().__init__()
         self.masking_prob = masking_prob
 
     def on_step_begin(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
