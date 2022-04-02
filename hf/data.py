@@ -236,7 +236,12 @@ def tokenize(example, tokenizer, max_seq_length, padding):
                     or label_start <= token_start < label_end
                 ):
                     labels[idx] = 1.0  # labels should be float
-
+    else:
+        for idx, seq_id in enumerate(tokenized_inputs["sequence_ids"]):
+            if seq_id is None or seq_id == 0:
+                # don't calculate loss on question part or special tokens
+                labels[idx] = -100.0
+                
     tokenized_inputs["labels"] = labels
 
     return tokenized_inputs
