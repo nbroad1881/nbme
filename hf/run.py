@@ -2,6 +2,7 @@ from functools import partial
 import datetime
 
 import wandb
+import torch
 from transformers import Trainer, TrainingArguments, AutoConfig
 from transformers.trainer_utils import set_seed
 from transformers.integrations import WandbCallback
@@ -92,3 +93,5 @@ if __name__ == "__main__":
 
         trainer.train()
         wandb.finish()
+
+        torch.cuda.empty_cache()
