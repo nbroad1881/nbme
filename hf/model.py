@@ -10,6 +10,7 @@ from transformers import PreTrainedModel, logging, AutoModel
 from transformers.activations import ACT2FN
 
 from focal_loss import FocalLoss
+from sift import hook_sift_layer, AdversarialLearner
 
 logger = logging.get_logger(__name__)
 
@@ -46,6 +47,10 @@ class CustomModel(PreTrainedModel):
             self.crf = CRF(config.num_labels, batch_first=True)
 
         self.loss_fn = torch.nn.BCEWithLogitsLoss(reduction="none")
+        if config.to_dict().get("use_sift"):
+            self.adv_modules = hook_sift_layer(self, hidden_size=config.hidden_size)
+            self.adv = AdversarialLearner(self, self.adv_modules)
+
         if config.to_dict().get("use_focal_loss"):
             self.loss_fn = FocalLoss()
         if config.to_dict().get("use_gated"):
@@ -77,7 +82,7 @@ class CustomModel(PreTrainedModel):
                 self.output(self.dropouts[i](sequence_output)) for i in range(5)
             ]
 
-            logits = sum(all_logits)/len(self.dropouts)
+            logits = sum(all_logits) / len(self.dropouts)
 
             if self.config and self.config.to_dict().get("use_crf"):
 
@@ -87,6 +92,8 @@ class CustomModel(PreTrainedModel):
                 attention_mask = attention_mask * mask
 
                 loss = -self.crf(logits, labels, attention_mask.bool())
+            elif self.config.to_dict().get("use_focal_loss"):
+                pass
             else:
                 all_losses = [
                     self.loss_fn(
@@ -95,10 +102,31 @@ class CustomModel(PreTrainedModel):
                     )
                     for logits in all_logits
                 ]
-                loss = sum(all_losses)/len(self.dropouts)
+                loss = sum(all_losses) / len(self.dropouts)
                 loss = torch.masked_select(
                     loss, labels.view(-1, self.config.num_labels) > -1
                 ).mean()
+
+                if self.config.to_dict().get("use_sift"):
+
+                    def logits_fn(model, **kwargs):
+                        outputs = self.backbone(
+                            input_ids=kwargs["input_ids"],
+                            attention_mask=kwargs["attention_mask"],
+                            token_type_ids=kwargs["token_type_ids"],
+                            position_ids=kwargs["position_ids"],
+                        )
+
+                        return self.dropout(outputs.last_hidden_state)
+
+                    loss = loss + self.adv.loss(
+                        logits,
+                        logits_fn,
+                        input_ids=input_ids,
+                        attention_mask=attention_mask,
+                        token_type_ids=token_type_ids,
+                        position_ids=position_ids,
+                    )
         # otherwise, doing inference
         else:
             logits = self.output(sequence_output)
@@ -121,6 +149,7 @@ def get_pretrained(config, model_path):
         model.backbone = AutoModel.from_pretrained(model_path)
 
     return model
+
 
 class GatedDense(nn.Module):
     def __init__(self, config):
