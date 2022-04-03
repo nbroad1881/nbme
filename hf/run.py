@@ -20,10 +20,10 @@ from callbacks import NewWandbCB, SaveCallback, MaskingProbCallback
 
 if __name__ == "__main__":
 
-    config_file = "q-rob1.yml"
-    output = "rob-l"
+    config_file = "c-rl-2.yml"
+    output = "nb-rl-1"
     cfg, args = get_configs(config_file)
-    set_seed(cfg["seed"])
+    set_seed(args["seed"])
     set_wandb_env_vars(cfg)
 
     datamodule = DataModule(cfg)
@@ -33,7 +33,7 @@ if __name__ == "__main__":
 
         cfg, args = get_configs(config_file)
         cfg["fold"] = fold
-        args["output_dir"] = f"{output}_f{fold}"
+        args["output_dir"] = f"{output}-f{fold}"
 
         args = TrainingArguments(**args)
 
