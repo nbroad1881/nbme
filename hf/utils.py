@@ -116,7 +116,7 @@ class DataCollatorWithMasking(DataCollatorForTokenClassification):
         batch[label_name] = batch[label_name].type(torch.float32)
 
         masking_prob = os.getenv("MASKING_PROB")
-        if masking_prob is not None:
+        if masking_prob is not None and masking_prob != "0":
             batch = self.mask_tokens(batch, float(masking_prob))
 
         return batch
@@ -156,11 +156,11 @@ def reinit_model_weights(model, n_layers, config):
         encoder_layers = backbone.encoder.layers
         decoder_layers = backbone.decoder.layers
 
-        reinit_layers(encoder_layers, n_layers, config, std)
-        reinit_layers(decoder_layers, n_layers, config, std)
+        reinit_layers(encoder_layers, n_layers, std)
+        reinit_layers(decoder_layers, n_layers, std)
     else:
         encoder_layers = backbone.encoder.layer
-        reinit_layers(encoder_layers, n_layers, config, std)
+        reinit_layers(encoder_layers, n_layers, std)
 
     reinit_modules([model.output], std)
 
