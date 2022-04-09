@@ -269,7 +269,7 @@ class DataModule:
         train_df = train_df.merge(notes_df, on=["pn_num", "case_num"], how="left")
         train_df = fix_annotations(train_df)
 
-        train_df = create_folds(train_df)
+        train_df = create_folds(train_df, kfolds=self.cfg["k_folds"])
 
         train_df["annotation"] = [literal_eval(x) for x in train_df.annotation]
         train_df["location"] = [literal_eval(x) for x in train_df.location]
@@ -278,7 +278,7 @@ class DataModule:
             process_feature_text(x) for x in train_df["feature_text"]
         ]
 
-        self.train_df = train_df
+        self.train_df = train_df.sample(frac=1, random_state=42)
         if self.cfg["DEBUG"]:
             self.train_df = self.train_df.sample(n=200)
 
