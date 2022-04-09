@@ -252,7 +252,7 @@ class SiftTrainer(Trainer):
             out = model(kwargs["input_ids"], kwargs["attention_mask"])
             return out.logits
 
-        if hasattr(self, "adv"):
-            loss = loss + self.adv.loss(outputs.logits, logits_fn, **inputs)
+        if loss.requires_grad:
+            loss += self.adv.loss(outputs.logits, logits_fn, **inputs)
 
         return (loss, outputs) if return_outputs else loss
