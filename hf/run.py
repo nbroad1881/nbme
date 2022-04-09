@@ -18,6 +18,7 @@ from utils import (
     reinit_model_weights,
 )
 from callbacks import NewWandbCB, SaveCallback, MaskingProbCallback
+from sift import SiftTrainer
 
 if __name__ == "__main__":
 
@@ -83,6 +84,7 @@ if __name__ == "__main__":
             label_pad_token_id=-100,
         )
 
+        Trainer = SiftTrainer if cfg.get("use_sift") else Trainer
         trainer = Trainer(
             model=model,
             args=args,
