@@ -1,5 +1,6 @@
 import os
 
+import torch
 from transformers import TrainingArguments
 from transformers.integrations import WandbCallback
 from transformers.trainer_callback import TrainerCallback, TrainerControl, TrainerState
@@ -141,3 +142,37 @@ class MaskingProbCallback(TrainerCallback):
     def on_step_end(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
         os.environ["MASKING_PROB"] = "0"
             
+
+class BasicSWACallback(TrainerCallback):
+    """
+    Very basic way of averaging weights.
+    Starts adding weights to self.weights and counting how many
+    weights have been added.
+    When training is done, average the weights and save.
+
+    Starts saving after `start_after` steps and then adds weights
+    every `save_every` steps.
+    """
+
+    def __init__(self, start_after, save_every):
+        super().__init__()
+
+        self.start_after = start_after
+        self.save_every = save_every
+        self.state_dict = None
+        self.count = 0
+
+
+    def on_step_end(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
+        
+        if state.global_step > self.start_after and state.global_step % self.save_every == 0:
+            if self.state_dict is None:
+                self.state_dict = kwargs["model"].state_dict()
+            else:
+                self.state_dict = {k: self.state_dict[k]+v for k, v in kwargs["model"].state_dict().items()}
+            self.count += 1
+
+    def on_train_end(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
+        
+        self.state_dict = {k:v/self.count for k, v in self.state_dict.items()}
+        torch.save(self.state_dict, os.path.join(args.output_dir, "swa_weights.bin")) 
