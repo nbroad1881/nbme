@@ -1,9 +1,10 @@
 import os
+import itertools
 from dataclasses import dataclass
 
 import torch
 import numpy as np
-from sklearn.metrics import precision_recall_fscore_support
+from sklearn.metrics import precision_recall_fscore_support, f1_score
 from transformers import DataCollatorForTokenClassification
 from transformers.utils import logging
 
@@ -18,6 +19,88 @@ def set_wandb_env_vars(cfg):
     os.environ["WANDB_NOTES"] = cfg.get("notes", "")
     os.environ["WANDB_TAGS"] = ",".join(cfg.get("tags", ""))
 
+
+# From https://www.kaggle.com/theoviel/evaluation-metric-folds-baseline
+
+def micro_f1(preds, truths):
+    """
+    Micro f1 on binary arrays.
+
+    Args:
+        preds (list of lists of ints): Predictions.
+        truths (list of lists of ints): Ground truths.
+
+    Returns:
+        float: f1 score.
+    """
+    # Micro : aggregating over all instances
+    preds = np.concatenate(preds)
+    truths = np.concatenate(truths)
+    return f1_score(truths, preds)
+
+
+def spans_to_binary(spans, length=None):
+    """
+    Converts spans to a binary array indicating whether each character is in the span.
+
+    Args:
+        spans (list of lists of two ints): Spans.
+
+    Returns:
+        np array [length]: Binarized spans.
+    """
+    length = np.max(spans) if length is None else length
+    binary = np.zeros(length)
+    for start, end in spans:
+        binary[start:end] = 1
+    return binary
+
+
+def span_micro_f1(preds, truths):
+    """
+    Micro f1 on spans.
+
+    Args:
+        preds (list of lists of two ints): Prediction spans.
+        truths (list of lists of two ints): Ground truth spans.
+
+    Returns:
+        float: f1 score.
+    """
+    bin_preds = []
+    bin_truths = []
+    for pred, truth in zip(preds, truths):
+        if not len(pred) and not len(truth):
+            continue
+        length = max(np.max(pred) if len(pred) else 0, np.max(truth) if len(truth) else 0)
+        bin_preds.append(spans_to_binary(pred, length))
+        bin_truths.append(spans_to_binary(truth, length))
+    return micro_f1(bin_preds, bin_truths)
+
+def get_score(y_true, y_pred):
+    score = span_micro_f1(y_true, y_pred)
+    return score
+
+def get_results(char_probs, th=0.5):
+    results = []
+    for char_prob in char_probs:
+        result = np.where(char_prob >= th)[0] + 1
+        result = [list(g) for _, g in itertools.groupby(result, key=lambda n, c=itertools.count(): n - next(c))]
+        result = [f"{min(r)} {max(r)}" for r in result]
+        result = ";".join(result)
+        results.append(result)
+    return results
+
+def get_predictions(results):
+    predictions = []
+    for result in results:
+        prediction = []
+        if result != "":
+            for loc in [s.split() for s in result.split(';')]:
+                start, end = int(loc[0]), int(loc[1])
+                prediction.append([start, end])
+        predictions.append(prediction)
+    return predictions
 
 def get_location_predictions(preds, dataset):
     """
