@@ -93,10 +93,10 @@ class CustomModel(PreTrainedModel):
             else:
                 all_losses = [
                     self.loss_fn(
-                        logits.view(-1, self.config.num_labels),
+                        lgts.view(-1, self.config.num_labels),
                         labels.view(-1, self.config.num_labels),
                     )
-                    for logits in all_logits
+                    for lgts in all_logits
                 ]
                 loss = sum(all_losses) / len(self.dropouts)
                 loss = torch.masked_select(
@@ -111,7 +111,7 @@ class CustomModel(PreTrainedModel):
 
         return TokenClassifierOutput(
             loss=loss,
-            logits=logits.sigmoid(),
+            logits=logits,
             crf=crf_output,
         )
 
