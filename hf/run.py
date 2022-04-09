@@ -50,7 +50,9 @@ if __name__ == "__main__":
 
         train_dataset = datamodule.get_train_dataset()
         eval_dataset = datamodule.get_eval_dataset()
-
+        
+        print(f"Train dataset length: {len(train_dataset)}")
+        print(f"Eval dataset length: {len(eval_dataset)}")
         compute_metrics = partial(kaggle_metrics, dataset=eval_dataset)
 
         model_config = AutoConfig.from_pretrained(cfg["model_name_or_path"])
@@ -60,6 +62,9 @@ if __name__ == "__main__":
                 "hidden_dropout_prob": cfg["dropout"],
                 # "layer_norm_eps": cfg["layer_norm_eps"],
                 "run_start": str(datetime.datetime.utcnow()),
+                "use_crf": cfg.get("use_crf", False),
+                "use_sift": cfg.get("use_sift", False),
+                "use_focal_loss": cfg.get("use_focal_loss", False),
             }
         )
 
