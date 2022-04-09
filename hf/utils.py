@@ -4,6 +4,8 @@ from dataclasses import dataclass
 
 import torch
 import numpy as np
+from scipy.special import expit
+
 from sklearn.metrics import precision_recall_fscore_support, f1_score
 from transformers import DataCollatorForTokenClassification
 from transformers.utils import logging
@@ -140,7 +142,7 @@ def kaggle_metrics(eval_prediction, dataset):
     into the `compute_metrics` function.
     """
 
-    pred_idxs = get_location_predictions(eval_prediction.predictions, dataset)
+    pred_idxs = get_location_predictions(expit(eval_prediction.predictions), dataset)
 
     all_labels = []
     all_preds = []
