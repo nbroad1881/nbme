@@ -23,7 +23,7 @@ swa_lr: 1e-7
 swa_start: 0.8
 swa_steps: 50
 use_sift: no
-use_gated: yes
+use_gated: no
 gated_act_fn: "gelu_new"
 
 
@@ -34,10 +34,9 @@ group: round3
 tags:
   - ner
   - roberta-large
-  - gated-gelu
 notes: >
   Roberta large. No pseudo-labels.
-  Use eval_delay. Gated gelu_new
+  Use eval_delay.
 job_type: train
 
 # TrainingArguments
@@ -60,7 +59,7 @@ training_arguments:
   per_device_train_batch_size: 4
   gradient_accumulation_steps: 2
   gradient_checkpointing: no
-  group_by_length: yes
+  group_by_length: no
   learning_rate: 1.5e-5
   weight_decay: .01
 
