@@ -5,7 +5,7 @@ num_proc: 7
 max_seq_length: 512
 padding: no
 stride: 0
-model_name_or_path: "roberta-base"
+model_name_or_path: "roberta-large"
 data_dir: "./data"
 min_score_to_save: 0.87
 masking_prob: 0.1
@@ -32,9 +32,9 @@ entity: nbroad
 group: round3
 tags:
   - mlm
-  - roberta-base
+  - roberta-large
 notes: >
-  roberta base mlm
+  roberta large mlm
 job_type: train
 
 # TrainingArguments
@@ -99,7 +99,7 @@ training_arguments:
   save_strategy: "steps"
   save_steps: 300000
   save_total_limit: 2
-  load_best_model_at_end: yes
+  load_best_model_at_end: no
 
 # evaluation
   do_eval: yes
@@ -110,7 +110,7 @@ training_arguments:
   do_predict:
   
 # hub
-  push_to_hub: no
+  push_to_hub: yes
   hub_model_id:
   hub_strategy: "every_save"
   hub_token:
