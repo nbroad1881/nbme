@@ -21,7 +21,7 @@ def create_folds(df, kfolds=8, groups_col="pn_num"):
     gkf = GroupKFold(n_splits=kfolds)
     df["fold"] = -1
     for fold, (_, val_idx) in enumerate(
-        gkf.split(df, y=df["location"], groups=df[groups_col])
+        gkf.split(df, groups=df[groups_col])
     ):
         df.loc[val_idx, "fold"] = fold
 
