@@ -136,14 +136,26 @@ class MaskingProbCallback(TrainerCallback):
         super().__init__()
         self.masking_prob = masking_prob
 
-    def on_step_begin(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
+    def on_step_begin(
+        self,
+        args: TrainingArguments,
+        state: TrainerState,
+        control: TrainerControl,
+        **kwargs,
+    ):
         os.environ["MASKING_PROB"] = str(self.masking_prob)
-    
-    def on_step_end(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
-        os.environ["MASKING_PROB"] = "0"
-            
 
-class BasicSWACallback(TrainerCallback):
+    def on_step_end(
+        self,
+        args: TrainingArguments,
+        state: TrainerState,
+        control: TrainerControl,
+        **kwargs,
+    ):
+        os.environ["MASKING_PROB"] = "0"
+
+
+class AveragedModelCallback(TrainerCallback):
     """
     Very basic way of averaging weights.
     Starts adding weights to self.weights and counting how many
@@ -162,17 +174,86 @@ class BasicSWACallback(TrainerCallback):
         self.state_dict = None
         self.count = 0
 
+    def on_step_end(
+        self,
+        args: TrainingArguments,
+        state: TrainerState,
+        control: TrainerControl,
+        **kwargs,
+    ):
 
-    def on_step_end(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
-        
-        if state.global_step > self.start_after and state.global_step % self.save_every == 0:
+        if (
+            state.global_step > self.start_after
+            and state.global_step % self.save_every == 0
+        ):
             if self.state_dict is None:
                 self.state_dict = kwargs["model"].state_dict()
             else:
-                self.state_dict = {k: self.state_dict[k]+v for k, v in kwargs["model"].state_dict().items()}
+                self.state_dict = {
+                    k: self.state_dict[k] + v
+                    for k, v in kwargs["model"].state_dict().items()
+                }
             self.count += 1
 
-    def on_train_end(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
-        
-        self.state_dict = {k:v/self.count for k, v in self.state_dict.items()}
-        torch.save(self.state_dict, os.path.join(args.output_dir, "swa_weights.bin")) 
+    def on_train_end(
+        self,
+        args: TrainingArguments,
+        state: TrainerState,
+        control: TrainerControl,
+        **kwargs,
+    ):
+
+        self.state_dict = {k: v / self.count for k, v in self.state_dict.items()}
+        torch.save(
+            self.state_dict, os.path.join(args.output_dir, "averaged_weights.bin")
+        )
+
+
+class BasicSWACallback(TrainerCallback):
+    """
+    Follows the running average method like here:
+    https://github.com/pytorch/pytorch/blob/12a1df27c73f05b8bfba72d68ac8f75f4e81dc35/torch/optim/swa_utils.py#L98
+
+    Starts saving after `start_after` steps and then adds weights
+    every `save_every` steps.
+    """
+
+    def __init__(self, start_after, save_every):
+        super().__init__()
+
+        self.start_after = start_after
+        self.save_every = save_every
+        self.state_dict = None
+        self.count = 0
+
+    def on_step_end(
+        self,
+        args: TrainingArguments,
+        state: TrainerState,
+        control: TrainerControl,
+        **kwargs,
+    ):
+
+        if (
+            state.global_step > self.start_after
+            and state.global_step % self.save_every == 0
+        ):
+            if self.state_dict is None:
+                self.state_dict = kwargs["model"].state_dict()
+            else:
+                self.state_dict = {
+                    k: self.state_dict[k] + (v - self.state_dict[k]) / (self.count + 1)
+                    for k, v in kwargs["model"].state_dict().items()
+                }
+            self.count += 1
+
+    def on_train_end(
+        self,
+        args: TrainingArguments,
+        state: TrainerState,
+        control: TrainerControl,
+        **kwargs,
+    ):
+        torch.save(
+            self.state_dict, os.path.join(args.output_dir, "swa_weights.bin")
+        )
