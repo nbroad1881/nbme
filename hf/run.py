@@ -1,3 +1,4 @@
+import os
 from functools import partial
 import datetime
 
@@ -17,13 +18,13 @@ from utils import (
     set_wandb_env_vars,
     reinit_model_weights,
 )
-from callbacks import NewWandbCB, SaveCallback, MaskingProbCallback
+from callbacks import NewWandbCB, SaveCallback, MaskingProbCallback, BasicSWACallback
 from sift import SiftTrainer
 
 if __name__ == "__main__":
 
-    config_file = "c-rl-2.yml"
-    output = "nb-rl-1"
+    config_file = "j-rb-swa-0.yml"
+    output = "nb-rb-swa-0"
     cfg, args = get_configs(config_file)
     set_seed(args["seed"])
     set_wandb_env_vars(cfg)
@@ -48,6 +49,11 @@ if __name__ == "__main__":
             min_score_to_save=cfg["min_score_to_save"], metric_name="eval_f1"
         )
         masking_callback = MaskingProbCallback(cfg["masking_prob"])
+
+        callbacks = [wb_callback, save_callback, masking_callback]
+        if cfg["use_swa"]:
+            callbacks.append(BasicSWACallback(start_after=cfg["swa_start_after"], save_every=cfg["swa_save_every"]))
+
 
         train_dataset = datamodule.get_train_dataset()
         eval_dataset = datamodule.get_eval_dataset()
@@ -93,12 +99,17 @@ if __name__ == "__main__":
             compute_metrics=compute_metrics,
             tokenizer=datamodule.tokenizer,
             data_collator=data_collator,
-            callbacks=[wb_callback, save_callback, masking_callback],
+            callbacks=callbacks,
         )
 
         trainer.remove_callback(WandbCallback)
 
         trainer.train()
+
+        if cfg.get("use_swa"):
+            trainer.model.load_state_dict(torch.load(os.path.join(args.output_dir, 'swa_weights.bin')))
+            eval_results = trainer.evaluate()
+
         wandb.finish()
 
         torch.cuda.empty_cache()
