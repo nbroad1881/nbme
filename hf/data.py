@@ -20,9 +20,7 @@ def create_folds(df, kfolds=8, groups_col="pn_num"):
     """
     gkf = GroupKFold(n_splits=kfolds)
     df["fold"] = -1
-    for fold, (_, val_idx) in enumerate(
-        gkf.split(df, groups=df[groups_col])
-    ):
+    for fold, (_, val_idx) in enumerate(gkf.split(df, groups=df[groups_col])):
         df.loc[val_idx, "fold"] = fold
 
     return df
@@ -334,7 +332,6 @@ class NERDataModule:
             num_proc=self.cfg["num_proc"],
             remove_columns=[],
         )
-        
 
     def get_train_dataset(self):
         return self.dataset["train"]
@@ -356,7 +353,9 @@ class MLMDataModule:
 
         notes_df = pd.read_csv(data_dir / "patient_notes.csv")
 
-        train_df = create_folds(notes_df, kfolds=self.cfg["k_folds"], groups_col="case_num")
+        train_df = create_folds(
+            notes_df, kfolds=self.cfg["k_folds"], groups_col="case_num"
+        )
 
         self.train_df = train_df.sample(frac=1, random_state=42)
         if self.cfg["DEBUG"]:
@@ -400,21 +399,31 @@ class MLMDataModule:
 
         def group_texts(examples):
             # Concatenate all texts.
-            concatenated_examples = {k: list(chain(*examples[k])) for k in examples.keys()}
+            concatenated_examples = {
+                k: list(chain(*examples[k])) for k in examples.keys()
+            }
             total_length = len(concatenated_examples[list(examples.keys())[0]])
             # We drop the small remainder, we could add padding if the model supported it instead of this drop, you can
             # customize this part to your needs.
             if total_length >= self.cfg["max_seq_length"]:
-                total_length = (total_length // self.cfg["max_seq_length"]) * self.cfg["max_seq_length"]
+                total_length = (total_length // self.cfg["max_seq_length"]) * self.cfg[
+                    "max_seq_length"
+                ]
             # Split by chunks of max_len.
             result = {
-                k: [t[i : i + self.cfg["max_seq_length"]] for i in range(0, total_length, self.cfg["max_seq_length"])]
+                k: [
+                    t[i : i + self.cfg["max_seq_length"]]
+                    for i in range(0, total_length, self.cfg["max_seq_length"])
+                ]
                 for k, t in concatenated_examples.items()
             }
             return result
 
         self.dataset = self.dataset.map(
-            group_texts, batched=True, remove_columns=self.dataset["train"].column_names
+            group_texts,
+            batched=True,
+            num_proc=self.cfg["num_proc"],
+            remove_columns=self.dataset["train"].column_names,
         )
 
     def get_train_dataset(self):
