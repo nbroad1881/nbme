@@ -35,8 +35,7 @@ tags:
   - roberta-base
   - swa
 notes: >
-  Roberta large. No pseudo-labels.
-  Use eval_delay.
+  swa 2.0
 job_type: train
 
 # TrainingArguments
