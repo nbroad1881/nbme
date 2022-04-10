@@ -22,8 +22,8 @@ from callbacks import NewWandbCB
 
 if __name__ == "__main__":
 
-    config_file = "j-rb-mlm-0.yml"
-    output = "nb-rb-mlm-0"
+    config_file = "j-rl-mlm-0.yml"
+    output = "nb-rl-mlm-0"
     cfg, args = get_configs(config_file)
     set_seed(args["seed"])
     set_wandb_env_vars(cfg)
@@ -73,7 +73,7 @@ if __name__ == "__main__":
     model_config.update(
         {
             "hidden_dropout_prob": cfg["dropout"],
-            # "layer_norm_eps": cfg["layer_norm_eps"],
+            "layer_norm_eps": cfg["layer_norm_eps"],
             "run_start": str(datetime.datetime.utcnow()),
         }
     )
@@ -83,9 +83,6 @@ if __name__ == "__main__":
     data_collator = DataCollatorForLanguageModeling(
             tokenizer=datamodule.tokenizer,
             return_tensors="pt",
-            padding="longest",
-            pad_to_multiple_of=8,
-            label_pad_token_id=-100,
         )
 
     trainer = Trainer(
