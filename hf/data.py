@@ -1,6 +1,7 @@
 from pathlib import Path
 from ast import literal_eval
 from functools import partial
+from itertools import chain
 from dataclasses import dataclass
 
 import pandas as pd
@@ -9,7 +10,7 @@ from transformers import AutoTokenizer
 from datasets import Dataset, DatasetDict
 
 
-def create_folds(df, kfolds=8):
+def create_folds(df, kfolds=8, groups_col="pn_num"):
     """
     To have good CV, the data should be split
     so that no `pn_num` is in multiple folds.
@@ -18,9 +19,10 @@ def create_folds(df, kfolds=8):
         df should be merge of `train.csv`, `features.csv`, and `patient_notes.csv`
     """
     gkf = GroupKFold(n_splits=kfolds)
-    groups = df["pn_num"]
     df["fold"] = -1
-    for fold, (_, val_idx) in enumerate(gkf.split(df, y=df["location"], groups=groups)):
+    for fold, (_, val_idx) in enumerate(
+        gkf.split(df, y=df["location"], groups=df[groups_col])
+    ):
         df.loc[val_idx, "fold"] = fold
 
     return df
@@ -241,14 +243,14 @@ def tokenize(example, tokenizer, max_seq_length, padding):
             if seq_id is None or seq_id == 0:
                 # don't calculate loss on question part or special tokens
                 labels[idx] = -100.0
-                
+
     tokenized_inputs["labels"] = labels
 
     return tokenized_inputs
 
 
 @dataclass
-class DataModule:
+class NERDataModule:
 
     cfg: dict = None
 
@@ -331,6 +333,88 @@ class DataModule:
             batched=False,
             num_proc=self.cfg["num_proc"],
             remove_columns=[],
+        )
+        
+
+    def get_train_dataset(self):
+        return self.dataset["train"]
+
+    def get_eval_dataset(self):
+        return self.dataset["validation"]
+
+
+@dataclass
+class MLMDataModule:
+
+    cfg: dict = None
+
+    def __post_init__(self):
+        if self.cfg is None:
+            raise ValueError
+
+        data_dir = Path(self.cfg["data_dir"])
+
+        notes_df = pd.read_csv(data_dir / "patient_notes.csv")
+
+        train_df = create_folds(notes_df, kfolds=self.cfg["k_folds"], groups_col="case_num")
+
+        self.train_df = train_df.sample(frac=1, random_state=42)
+        if self.cfg["DEBUG"]:
+            self.train_df = self.train_df.sample(n=200)
+
+        if (
+            "deberta-v2" in self.cfg["model_name_or_path"]
+            or "deberta-v3" in self.cfg["model_name_or_path"]
+        ):
+            from transformers.models.deberta_v2.tokenization_deberta_v2_fast import (
+                DebertaV2TokenizerFast,
+            )
+
+            self.tokenizer = DebertaV2TokenizerFast.from_pretrained(
+                self.cfg["model_name_or_path"]
+            )
+        else:
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                self.cfg["model_name_or_path"]
+            )
+
+    def prepare_datasets(self, fold):
+
+        self.dataset = DatasetDict()
+
+        self.dataset["train"] = Dataset.from_pandas(
+            self.train_df[self.train_df["fold"] != fold].copy().reset_index(drop=True)
+        )
+        self.dataset["validation"] = Dataset.from_pandas(
+            self.train_df[self.train_df["fold"] == fold].copy().reset_index(drop=True)
+        )
+
+        self.dataset = self.dataset.map(
+            lambda x: self.tokenizer(x["pn_history"], return_special_tokens_mask=True),
+            batched=True,
+            num_proc=self.cfg["num_proc"],
+            remove_columns=[
+                x for x in self.dataset["train"].column_names if x != "pn_history"
+            ],
+        )
+
+        def group_texts(examples):
+            # Concatenate all texts.
+            concatenated_examples = {k: list(chain(*examples[k])) for k in examples.keys()}
+            total_length = len(concatenated_examples[list(examples.keys())[0]])
+            # We drop the small remainder, we could add padding if the model supported it instead of this drop, you can
+            # customize this part to your needs.
+            if total_length >= self.cfg["max_seq_length"]:
+                total_length = (total_length // self.cfg["max_seq_length"]) * self.cfg["max_seq_length"]
+            # Split by chunks of max_len.
+            result = {
+                k: [t[i : i + self.cfg["max_seq_length"]] for i in range(0, total_length, self.cfg["max_seq_length"])]
+                for k, t in concatenated_examples.items()
+            }
+            return result
+
+        self.dataset = self.dataset.map(
+            group_texts, batched=True, remove_columns=self.dataset["train"].column_names
         )
 
     def get_train_dataset(self):
