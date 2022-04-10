@@ -9,7 +9,7 @@ from transformers.trainer_utils import set_seed
 from transformers.integrations import WandbCallback
 
 
-from data import DataModule
+from data import NERDataModule
 from config import get_configs
 from model import get_pretrained
 from utils import (
@@ -29,7 +29,7 @@ if __name__ == "__main__":
     set_seed(args["seed"])
     set_wandb_env_vars(cfg)
 
-    datamodule = DataModule(cfg)
+    datamodule = NERDataModule(cfg)
 
     for fold in range(cfg["k_folds"]):
 
