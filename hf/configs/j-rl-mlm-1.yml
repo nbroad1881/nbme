@@ -104,7 +104,7 @@ training_arguments:
 # evaluation
   do_eval: yes
   evaluation_strategy: "epoch"
-  eval_steps: 300
+  eval_steps: 20
   eval_delay: 0
   per_device_eval_batch_size: 32
   do_predict:
