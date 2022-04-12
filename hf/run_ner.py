@@ -23,8 +23,8 @@ from sift import SiftTrainer
 
 if __name__ == "__main__":
 
-    config_file = "j-rb-swa-0.yml"
-    output = "nb-rb-swa-0"
+    config_file = "j-rl-idpt-3.yml"
+    output = "nb-rl-idpt-3"
     cfg, args = get_configs(config_file)
     set_seed(args["seed"])
     set_wandb_env_vars(cfg)
@@ -67,7 +67,7 @@ if __name__ == "__main__":
             {
                 "num_labels": 1,
                 "hidden_dropout_prob": cfg["dropout"],
-                # "layer_norm_eps": cfg["layer_norm_eps"],
+                "layer_norm_eps": cfg["layer_norm_eps"],
                 "run_start": str(datetime.datetime.utcnow()),
                 "use_crf": cfg.get("use_crf", False),
                 "use_sift": cfg.get("use_sift", False),
