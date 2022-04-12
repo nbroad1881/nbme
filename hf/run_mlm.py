@@ -83,6 +83,7 @@ if __name__ == "__main__":
     data_collator = DataCollatorForLanguageModeling(
             tokenizer=datamodule.tokenizer,
             return_tensors="pt",
+            mlm_probability=cfg["masking_prob"],
         )
 
     trainer = Trainer(
