@@ -410,9 +410,7 @@ class MLMDataModule:
             lambda x: self.tokenizer(x["pn_history"], return_special_tokens_mask=True),
             batched=True,
             num_proc=self.cfg["num_proc"],
-            remove_columns=[
-                x for x in self.dataset["train"].column_names if x != "pn_history"
-            ],
+            remove_columns=self.dataset["train"].column_names,
         )
 
         def group_texts(examples):
