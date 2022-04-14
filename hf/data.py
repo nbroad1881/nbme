@@ -25,6 +25,7 @@ def create_folds(df, kfolds=8, groups_col="pn_num"):
 
     return df
 
+
 def fix_annotations(df):
     """
     Nearly the same as https://www.kaggle.com/yasufuminakama/nbme-deberta-base-baseline-train?scriptVersionId=87264998&cellId=17
@@ -198,11 +199,19 @@ def location_to_ints(location):
 
 
 def process_feature_text(text, use_custom_features=False):
-    
+
     if use_custom_features:
         if "beers" in text:
             text += ";drink alcohol;etoh;occasional"
-        elif text in {"45-year", "67-year", "44-year", "26-year", "20-year", "17-year", "35-year"}:
+        elif text in {
+            "45-year",
+            "67-year",
+            "44-year",
+            "26-year",
+            "20-year",
+            "17-year",
+            "35-year",
+        }:
             text += ";yo;y/o;Y O;y.o."
         elif "IUD" in text:
             text += ";intrauterine device"
@@ -216,7 +225,7 @@ def process_feature_text(text, use_custom_features=False):
             text += ";variable blood;variable flow;menses;use pads tampons;last days;heavy and light flow;no pattern periods"
         elif text == "Episodes-of-heart-racing":
             text += ";palpitations;heart pounding;heart beating fast"
-    
+
     text = text.replace("-OR-", " or ")
     return text.replace("-", " ")
 
@@ -293,7 +302,10 @@ class NERDataModule:
         train_df["location"] = [literal_eval(x) for x in train_df.location]
 
         train_df["feature_text"] = [
-            process_feature_text(x) for x in train_df["feature_text"]
+            process_feature_text(
+                x, use_custom_features=self.config.get("use_custom_features")
+            )
+            for x in train_df["feature_text"]
         ]
 
         self.train_df = train_df.sample(frac=1, random_state=42)
