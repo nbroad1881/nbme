@@ -122,6 +122,7 @@ training_arguments:
 
 # misc
   report_to: "wandb"
+  hub_private_repo: yes
 
 # rarely used
   debug: <default>
