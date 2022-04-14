@@ -25,7 +25,6 @@ def create_folds(df, kfolds=8, groups_col="pn_num"):
 
     return df
 
-
 def fix_annotations(df):
     """
     Nearly the same as https://www.kaggle.com/yasufuminakama/nbme-deberta-base-baseline-train?scriptVersionId=87264998&cellId=17
@@ -198,7 +197,26 @@ def location_to_ints(location):
     return to_return
 
 
-def process_feature_text(text):
+def process_feature_text(text, use_custom_features=False):
+    
+    if use_custom_features:
+        if "beers" in text:
+            text += ";drink alcohol;etoh;occasional"
+        elif text in {"45-year", "67-year", "44-year", "26-year", "20-year", "17-year", "35-year"}:
+            text += ";yo;y/o;Y O;y.o."
+        elif "IUD" in text:
+            text += ";intrauterine device"
+        elif text == "Unprotected-Sex":
+            text += ";no contraception;no condoms;no protection;no barrier;no ocp"
+        elif text == "1-day-duration-OR-2-days-duration":
+            text += ";yesterday;day ago;past day"
+        elif text == "Prior-episodes-of-diarrhea":
+            text += ";loose stool;diarrhea days ago;soft;watery stools"
+        elif text == "Irregular-flow-OR-Irregular-frequency-OR-Irregular-intervals":
+            text += ";variable blood;variable flow;menses;use pads tampons;last days;heavy and light flow;no pattern periods"
+        elif text == "Episodes-of-heart-racing":
+            text += ";palpitations;heart pounding;heart beating fast"
+    
     text = text.replace("-OR-", " or ")
     return text.replace("-", " ")
 
