@@ -201,8 +201,9 @@ def location_to_ints(location):
 def process_feature_text(text, use_custom_features=False):
 
     if use_custom_features:
+        separator = " or "
         if "beers" in text:
-            text += ";drink alcohol;etoh;occasional"
+            text = separator.join([text, "drink alcohol", "etoh", "occasional"])
         elif text in {
             "45-year",
             "67-year",
@@ -212,19 +213,42 @@ def process_feature_text(text, use_custom_features=False):
             "17-year",
             "35-year",
         }:
-            text += ";yo;y/o;Y O;y.o."
+            text = separator.join([text, "yo", "y/o", "Y O", "y.o."])
         elif "IUD" in text:
-            text += ";intrauterine device"
+            text = separator.join([text, "intrauterine device"])
         elif text == "Unprotected-Sex":
-            text += ";no contraception;no condoms;no protection;no barrier;no ocp"
+            text = separator.join(
+                [
+                    text,
+                    "no contraception",
+                    "no condoms",
+                    "no protection",
+                    "no barrier",
+                    "no ocp",
+                ]
+            )
         elif text == "1-day-duration-OR-2-days-duration":
-            text += ";yesterday;day ago;past day"
+            text = separator.join([text, "yesterday", "day ago", "past day"])
         elif text == "Prior-episodes-of-diarrhea":
-            text += ";loose stool;diarrhea days ago;soft;watery stools"
+            text = separator.join(
+                [text, "loose stool", "diarrhea days ago", "soft", "watery stools"]
+            )
         elif text == "Irregular-flow-OR-Irregular-frequency-OR-Irregular-intervals":
-            text += ";variable blood;variable flow;menses;use pads tampons;last days;heavy and light flow;no pattern periods"
+            text = separator.join(
+                [
+                    text,
+                    "variable blood or flow",
+                    "menses",
+                    "use pads tampons",
+                    "last days",
+                    "heavy and light flow",
+                    "no pattern periods",
+                ]
+            )
         elif text == "Episodes-of-heart-racing":
-            text += ";palpitations;heart pounding;heart beating fast"
+            text = separator.join(
+                [text, "palpitations", "heart pounding", "heart beating fast"]
+            )
 
     text = text.replace("-OR-", " or ")
     return text.replace("-", " ")
@@ -303,7 +327,7 @@ class NERDataModule:
 
         train_df["feature_text"] = [
             process_feature_text(
-                x, use_custom_features=self.config.get("use_custom_features")
+                x, use_custom_features=self.cfg.get("use_custom_features")
             )
             for x in train_df["feature_text"]
         ]
