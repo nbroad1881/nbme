@@ -1,4 +1,6 @@
 import os
+import shutil
+from collections import deque
 
 import torch
 from transformers import TrainingArguments
@@ -86,7 +88,7 @@ class NewWandbCB(WandbCallback):
 
 
 class SaveCallback(TrainerCallback):
-    def __init__(self, min_score_to_save, metric_name) -> None:
+    def __init__(self, min_score_to_save, metric_name, save_weights_only=True) -> None:
         """
         After evaluation, if the `metric_name` value is higher than
         `min_score_to_save` the model will get saved.
@@ -97,6 +99,8 @@ class SaveCallback(TrainerCallback):
 
         self.min_score_to_save = min_score_to_save
         self.metric_name = metric_name
+        self.save_weights_only = save_weights_only
+        self.save_dirs = deque()
 
     def on_evaluate(
         self,
@@ -118,10 +122,26 @@ class SaveCallback(TrainerCallback):
             raise KeyError(f"{self.metric_name} not found in metrics")
 
         if metric_value > self.min_score_to_save:
-            control.should_save = True
             logger.info(f"Saving model.")
             self.min_score_to_save = metric_value
             kwargs["model"].config.update({"best_cv_f1": metric_value})
+
+            if self.save_weights_only:
+                new_dir = os.path.join(args.output_dir, f"weights-{state.global_step}")
+                os.makedirs(new_dir, exist=True)
+                torch.save(kwargs["model"].state_dict(), os.path.join(new_dir, "pytorch_model.bin"))
+                kwargs["model"].config.save_pretrained(new_dir)
+            else:
+                state.should_save = True
+                new_dir = os.path.join(args.output_dir, f"checkpoint-{state.global_step}")
+                
+            self.save_dirs.append(new_dir)
+            
+            # remove oldest if over save limit
+            if len(self.save_dirs) > args.save_total_limit:
+                to_remove = self.save_dirs.popleft()
+                shutil.rmtree(to_remove)
+
         else:
             logger.info("Not saving model.")
 
@@ -257,3 +277,17 @@ class BasicSWACallback(TrainerCallback):
         torch.save(
             self.state_dict, os.path.join(args.output_dir, "swa_weights.bin")
         )
+
+
+class SaveEvalPredsCallback(TrainerCallback):
+    """
+    Save logits for each evaluation.
+    """
+
+    def __init__(self, start_after, save_every):
+        super().__init__()
+
+        self.start_after = start_after
+        self.save_every = save_every
+        self.state_dict = None
+        self.count = 0
