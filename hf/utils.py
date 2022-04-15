@@ -237,15 +237,16 @@ def reinit_model_weights(model, n_layers, config):
     else:
         std = config.initializer_range
 
-    if config.model_type == "bart":
-        encoder_layers = backbone.encoder.layers
-        decoder_layers = backbone.decoder.layers
+    if n_layers > 0: 
+        if config.model_type == "bart":
+            encoder_layers = backbone.encoder.layers
+            decoder_layers = backbone.decoder.layers
 
-        reinit_layers(encoder_layers, n_layers, std)
-        reinit_layers(decoder_layers, n_layers, std)
-    else:
-        encoder_layers = backbone.encoder.layer
-        reinit_layers(encoder_layers, n_layers, std)
+            reinit_layers(encoder_layers, n_layers, std)
+            reinit_layers(decoder_layers, n_layers, std)
+        else:
+            encoder_layers = backbone.encoder.layer
+            reinit_layers(encoder_layers, n_layers, std)
 
     reinit_modules([model.output], std)
 
