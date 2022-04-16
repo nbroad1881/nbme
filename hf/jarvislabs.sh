@@ -4,7 +4,7 @@ cd nbme/hf
 
 # pip uninstall -y torch torchaudio torchtext torchvision
 # pip install torch==1.11.0+cu113 -f https://download.pytorch.org/whl/cu113/torch_stable.html
-pip install -r requirements.txt -q
+pip install -r requirements.txt
 
 read -s -p "Upload hf.txt: " ignore
 mkdir ~/.huggingface
