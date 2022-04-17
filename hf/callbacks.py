@@ -277,17 +277,3 @@ class BasicSWACallback(TrainerCallback):
         torch.save(
             self.state_dict, os.path.join(args.output_dir, "swa_weights.bin")
         )
-
-
-class SaveEvalPredsCallback(TrainerCallback):
-    """
-    Save logits for each evaluation.
-    """
-
-    def __init__(self, start_after, save_every):
-        super().__init__()
-
-        self.start_after = start_after
-        self.save_every = save_every
-        self.state_dict = None
-        self.count = 0
