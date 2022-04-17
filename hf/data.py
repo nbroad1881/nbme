@@ -334,22 +334,25 @@ class NERDataModule:
 
         self.train_df = train_df.sample(frac=1, random_state=42)
         if self.cfg["DEBUG"]:
-            self.train_df = self.train_df.sample(n=200)
+            self.train_df = self.train_df.sample(n=1000)
 
         if (
             "deberta-v2" in self.cfg["model_name_or_path"]
             or "deberta-v3" in self.cfg["model_name_or_path"]
+            or "d3" in self.cfg["model_name_or_path"]
         ):
             from transformers.models.deberta_v2.tokenization_deberta_v2_fast import (
                 DebertaV2TokenizerFast,
             )
 
             self.tokenizer = DebertaV2TokenizerFast.from_pretrained(
-                self.cfg["model_name_or_path"]
+                self.cfg["model_name_or_path"],
+                use_auth_token=True,
             )
         else:
             self.tokenizer = AutoTokenizer.from_pretrained(
-                self.cfg["model_name_or_path"]
+                self.cfg["model_name_or_path"],
+                use_auth_token=True,
             )
 
     def prepare_datasets(self, fold):
