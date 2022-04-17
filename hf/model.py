@@ -37,7 +37,7 @@ class TokenClassifierOutput(ModelOutput):
 class CustomModel(PreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
-        self.backbone = AutoModel.from_config(config)
+        self.backbone = AutoModel.from_config(config, use_auth_token=True)
 
         self.dropout = nn.Dropout(config.output_dropout)
         self.dropouts = [nn.Dropout(d / 10) for d in range(1, 6)]
@@ -125,7 +125,7 @@ def get_pretrained(config, model_path):
     if model_path.endswith("pytorch_model.bin"):
         model.load_state_dict(torch.load(model_path))
     else:
-        model.backbone = AutoModel.from_pretrained(model_path)
+        model.backbone = AutoModel.from_pretrained(model_path, use_auth_token=True)
 
     return model
 
