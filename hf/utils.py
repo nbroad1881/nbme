@@ -313,15 +313,13 @@ def layerwise_learning_rate(model, lr=3e-5, wd=0.01, alpha=0.8):
 
 def create_optimizer(model, train_args):
     return bnb.optim.Adam8bit(
-        model,
-        lr=train_args.learning_rate,
-        weight_decay=train_args.weight_decay,
+        uniform_learning_rate(model, train_args.learning_rate, train_args.weight_decay),
         betas=(train_args.adam_beta1, train_args.adam_beta2),
         eps=train_args.adam_epsilon,
     )
 
 
-def create_scheduler(self, num_training_steps, optimizer, train_args, **kwargs):
+def create_scheduler(num_training_steps, optimizer, train_args, **kwargs):
 
     # if self.run_config.lr_scheduler == "step":
     #     milestones = [m * num_training_steps for m in self.run_config.lr_milestones]

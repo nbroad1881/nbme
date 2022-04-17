@@ -6,13 +6,13 @@ num_proc: 7
 max_seq_length: 384
 padding: no
 stride: 0
-model_name_or_path: "microsoft/deberta-v2-xlarge"
+model_name_or_path: "microsoft/deberta-v3-large"
 data_dir: "./data"
 min_score_to_save: 0.87
 masking_prob: 0.4
 reinit_layers: 0
 layer_norm_eps: 1e-7
-dropout: 0.2
+dropout: 0.0
 use_crf: no
 loss: 'bce'
 use_8bit: no
@@ -29,7 +29,7 @@ swa_start_after: 6800
 swa_save_every: 25
 swa_lr: 1e-7
 
-# freezing
+# frozen
 n_frozen_layers: 12
 freeze_embeds: yes
 
@@ -61,11 +61,11 @@ training_arguments:
   seed: 18
 
 # hyperparams
-  per_device_train_batch_size: 8
-  gradient_accumulation_steps: 1
+  per_device_train_batch_size: 16
+  gradient_accumulation_steps: 8
   gradient_checkpointing: no
   group_by_length: no
-  learning_rate: 2e-5
+  learning_rate: 9e-5
   weight_decay: .01
 
 # schedule + steps
@@ -78,7 +78,7 @@ training_arguments:
 # optimizer
   adam_beta1: 0.9
   adam_beta2: 0.999
-  adam_epsilon: 1e-8
+  adam_epsilon: 1e-6
   max_grad_norm: 1.0
   optim: 'adamw_hf'
   adafactor: no
@@ -105,7 +105,7 @@ training_arguments:
 # saving (will be handled by callback)
   save_strategy: "epoch"
   save_steps: 300000
-  save_total_limit: 2
+  save_total_limit: 1
   load_best_model_at_end: no
   metric_for_best_model: "eval_accuracy"
 

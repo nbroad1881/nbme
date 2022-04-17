@@ -28,8 +28,8 @@ from model import DebertaForMaskedLM, DebertaV2ForMaskedLM
 
 if __name__ == "__main__":
 
-    config_file = "j-rl-mlm-0.yml"
-    output = "nb-rl-mlm-0"
+    config_file = "j-deb-v2-xl-mlm.yml"
+    output = "nb-d3-l-mlm"
     cfg, args = get_configs(config_file)
     set_seed(args["seed"])
     set_wandb_env_vars(cfg)
@@ -79,7 +79,7 @@ if __name__ == "__main__":
     model_config.update(
         {
             "output_dropout": cfg["dropout"],
-            "layer_norm_eps": cfg["layer_norm_eps"],
+            # "layer_norm_eps": cfg["layer_norm_eps"],
             "run_start": str(datetime.datetime.utcnow()),
         }
     )
@@ -98,7 +98,7 @@ if __name__ == "__main__":
 
     model.resize_token_embeddings(len(datamodule.tokenizer))
 
-    freeze_layers(model, cfg["n_frozen_layers"], cfg.get("freeze_embeds", True))
+    # freeze_layers(getattr(model, model.config.model_type.split("-")[0]), cfg["n_frozen_layers"], cfg.get("freeze_embeds", True))
 
     data_collator = OnlyMaskingCollator(
         tokenizer=datamodule.tokenizer,
