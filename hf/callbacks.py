@@ -128,7 +128,7 @@ class SaveCallback(TrainerCallback):
 
             if self.save_weights_only:
                 new_dir = os.path.join(args.output_dir, f"weights-{state.global_step}")
-                os.makedirs(new_dir, exist=True)
+                os.makedirs(new_dir, exist_ok=True)
                 torch.save(kwargs["model"].state_dict(), os.path.join(new_dir, "pytorch_model.bin"))
                 kwargs["model"].config.save_pretrained(new_dir)
             else:
