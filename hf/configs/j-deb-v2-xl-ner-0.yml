@@ -1,15 +1,14 @@
 # RunArguments
 DEBUG: no
-n_gpu: 1
-k_folds: 10
+k_folds: 5
 num_proc: 7
-max_seq_length: 384
+max_seq_length: 
 padding: no
 stride: 0
 model_name_or_path: "microsoft/deberta-v2-xlarge"
 data_dir: "./data"
-min_score_to_save: 0.87
-masking_prob: 0.4
+min_score_to_save: 0.88
+masking_prob: 0.1
 reinit_layers: 0
 layer_norm_eps: 1e-7
 dropout: 0.2
@@ -19,29 +18,25 @@ use_8bit: no
 use_layerwise_lr: no
 layer_lr_alpha: 0.8
 use_lookahead: no
-use_sift: no
+use_swa: no
+swa_lr: 1e-7
+swa_start: 0.8
+swa_steps: 50
 use_gated: no
 gated_act_fn: "gelu_new"
+use_sift: no
+n_gpu: 1
 
-# swa
-use_swa: no
-swa_start_after: 6800
-swa_save_every: 25
-swa_lr: 1e-7
-
-# freezing
-n_frozen_layers: 12
-freeze_embeds: yes
 
 # WandB Config
 project: nbme-real
 entity: nbroad
 group: round3
 tags:
-  - mlm
+  - ner
   - deb-v2-xl
 notes: >
-  deberta v2 xl mlm
+  deb v2 xl
 job_type: train
 
 # TrainingArguments
@@ -61,15 +56,15 @@ training_arguments:
   seed: 18
 
 # hyperparams
-  per_device_train_batch_size: 8
+  per_device_train_batch_size: 16
   gradient_accumulation_steps: 1
   gradient_checkpointing: no
-  group_by_length: no
-  learning_rate: 2e-5
+  group_by_length: yes
+  learning_rate: 1e-5
   weight_decay: .01
 
 # schedule + steps
-  num_train_epochs: 20
+  num_train_epochs: 5
   lr_scheduler_type: linear
   warmup_ratio: 0.1
   warmup_steps: 0
@@ -78,7 +73,7 @@ training_arguments:
 # optimizer
   adam_beta1: 0.9
   adam_beta2: 0.999
-  adam_epsilon: 1e-8
+  adam_epsilon: 1e-6
   max_grad_norm: 1.0
   optim: 'adamw_hf'
   adafactor: no
@@ -103,17 +98,17 @@ training_arguments:
   tf32: no
 
 # saving (will be handled by callback)
-  save_strategy: "epoch"
+  save_strategy: "no"
   save_steps: 300000
-  save_total_limit: 2
+  save_total_limit: 1
   load_best_model_at_end: no
-  metric_for_best_model: "eval_accuracy"
+  metric_for_best_model: "eval_f1"
 
 # evaluation
   do_eval: yes
-  evaluation_strategy: "epoch"
-  eval_steps: 20
-  eval_delay: 0
+  evaluation_strategy: "steps"
+  eval_steps: 175
+  eval_delay: 2000
   per_device_eval_batch_size: 32
   do_predict:
   
