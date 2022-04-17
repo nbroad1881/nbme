@@ -23,8 +23,8 @@ from sift import SiftTrainer
 
 if __name__ == "__main__":
 
-    config_file = "j-rl-idpt-3.yml"
-    output = "nb-rl-idpt-3"
+    config_file = "j-dv3l-0.yml"
+    output = "nb-dv3l-0"
     cfg, args = get_configs(config_file)
     set_seed(args["seed"])
     set_wandb_env_vars(cfg)
@@ -66,8 +66,8 @@ if __name__ == "__main__":
         model_config.update(
             {
                 "num_labels": 1,
-                "hidden_dropout_prob": cfg["dropout"],
-                "layer_norm_eps": cfg["layer_norm_eps"],
+                # "hidden_dropout_prob": cfg["dropout"],
+                # "layer_norm_eps": cfg["layer_norm_eps"],
                 "run_start": str(datetime.datetime.utcnow()),
                 "use_crf": cfg.get("use_crf", False),
                 "use_sift": cfg.get("use_sift", False),
@@ -77,10 +77,10 @@ if __name__ == "__main__":
 
         model = get_pretrained(model_config, cfg["model_name_or_path"])
 
-        if cfg["reinit_layers"] > 0:
-            reinit_model_weights(
-                model, cfg["reinit_layers"], model_config
-            )
+        
+        reinit_model_weights(
+            model, cfg["reinit_layers"], model_config
+        )
 
         data_collator = DataCollatorWithMasking(
             tokenizer=datamodule.tokenizer,
