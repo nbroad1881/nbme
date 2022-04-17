@@ -11,7 +11,7 @@ min_score_to_save: 0.88
 masking_prob: 0.1
 reinit_layers: 0
 layer_norm_eps: 1e-7
-dropout: 0.2
+dropout: 0.1
 use_crf: no
 loss: 'bce'
 use_8bit: no
@@ -62,8 +62,8 @@ training_arguments:
   per_device_train_batch_size: 32
   gradient_accumulation_steps: 1
   gradient_checkpointing: no
-  group_by_length: no
-  learning_rate: 9e-6
+  group_by_length: yes
+  learning_rate: 3e-5
   weight_decay: .01
 
 # schedule + steps
