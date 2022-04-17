@@ -8,7 +8,6 @@ import torch
 from transformers import (
     AutoConfig,
     AutoModelForMaskedLM,
-    DataCollatorForLanguageModeling,
     Trainer,
     TrainingArguments,
     set_seed,
@@ -17,8 +16,15 @@ from transformers.integrations import WandbCallback
 
 from data import MLMDataModule
 from config import get_configs
-from utils import set_wandb_env_vars
+from utils import (
+    set_wandb_env_vars,
+    freeze_layers,
+    OnlyMaskingCollator,
+    create_optimizer,
+    create_scheduler,
+)
 from callbacks import NewWandbCB
+from model import DebertaForMaskedLM, DebertaV2ForMaskedLM
 
 if __name__ == "__main__":
 
@@ -72,37 +78,60 @@ if __name__ == "__main__":
     model_config = AutoConfig.from_pretrained(cfg["model_name_or_path"])
     model_config.update(
         {
-            "hidden_dropout_prob": cfg["dropout"],
+            "output_dropout": cfg["dropout"],
             "layer_norm_eps": cfg["layer_norm_eps"],
             "run_start": str(datetime.datetime.utcnow()),
         }
     )
 
-    model = AutoModelForMaskedLM.from_pretrained(cfg["model_name_or_path"], config=model_config)
-
-    data_collator = DataCollatorForLanguageModeling(
-            tokenizer=datamodule.tokenizer,
-            return_tensors="pt",
-            mlm_probability=cfg["masking_prob"],
+    if "deberta" in cfg["model_name_or_path"]:
+        if "v2" in cfg["model_name_or_path"] or "v3" in cfg["model_name_or_path"]:
+            model_fn = DebertaV2ForMaskedLM
+        else:
+            model_fn = DebertaForMaskedLM
+    else:
+        model_fn = AutoModelForMaskedLM
+        
+    model = model_fn.from_pretrained(
+            cfg["model_name_or_path"], config=model_config
         )
+
+    model.resize_token_embeddings(len(datamodule.tokenizer))
+
+    freeze_layers(model, cfg["n_frozen_layers"], cfg.get("freeze_embeds", True))
+
+    data_collator = OnlyMaskingCollator(
+        tokenizer=datamodule.tokenizer,
+        return_tensors="pt",
+        mlm_probability=cfg["masking_prob"],
+    )
+
+    num_training_steps = len(train_dataset) // args.per_device_train_batch_size // cfg["n_gpu"] * args.num_train_epochs
+
+    optimizer = create_optimizer(model, args)
+    scheduler = create_scheduler(num_training_steps, optimizer, args)
 
     trainer = Trainer(
-            model=model,
-            args=args,
-            train_dataset=train_dataset,
-            eval_dataset=eval_dataset,
-            compute_metrics=compute_metrics,
-            tokenizer=datamodule.tokenizer,
-            data_collator=data_collator,
-            callbacks=callbacks,
-        )
+        model=model,
+        args=args,
+        train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
+        compute_metrics=compute_metrics,
+        tokenizer=datamodule.tokenizer,
+        data_collator=data_collator,
+        preprocess_logits_for_metrics=preprocess_logits_for_metrics,
+        callbacks=callbacks,
+        optimizers=(optimizer, scheduler),
+    )
 
     trainer.remove_callback(WandbCallback)
 
     trainer.train()
 
     if cfg.get("use_swa"):
-        trainer.model.load_state_dict(torch.load(os.path.join(args.output_dir, 'swa_weights.bin')))
+        trainer.model.load_state_dict(
+            torch.load(os.path.join(args.output_dir, "swa_weights.bin"))
+        )
         eval_results = trainer.evaluate()
 
     wandb.finish()
