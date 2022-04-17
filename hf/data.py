@@ -413,7 +413,7 @@ class MLMDataModule:
 
         self.train_df = train_df.sample(frac=1, random_state=42)
         if self.cfg["DEBUG"]:
-            self.train_df = self.train_df.sample(n=200)
+            self.train_df = self.train_df.sample(n=1000)
 
         if (
             "deberta-v2" in self.cfg["model_name_or_path"]
