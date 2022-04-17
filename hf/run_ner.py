@@ -23,8 +23,8 @@ from sift import SiftTrainer
 
 if __name__ == "__main__":
 
-    config_file = "j-dv3l-0.yml"
-    output = "nb-dv3l-0"
+    config_file = "j-dv3l-1.yml"
+    output = "nb-dv3l-1"
     cfg, args = get_configs(config_file)
     set_seed(args["seed"])
     set_wandb_env_vars(cfg)
@@ -62,7 +62,7 @@ if __name__ == "__main__":
         print(f"Eval dataset length: {len(eval_dataset)}")
         compute_metrics = partial(kaggle_metrics, dataset=eval_dataset)
 
-        model_config = AutoConfig.from_pretrained(cfg["model_name_or_path"])
+        model_config = AutoConfig.from_pretrained(cfg["model_name_or_path"], use_auth_token=True)
         model_config.update(
             {
                 "num_labels": 1,
