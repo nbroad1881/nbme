@@ -1,14 +1,21 @@
 import os
 import itertools
 from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
 import numpy as np
 from scipy.special import expit
 
 from sklearn.metrics import precision_recall_fscore_support, f1_score
-from transformers import DataCollatorForTokenClassification
+from transformers import (
+    DataCollatorForTokenClassification,
+    DataCollatorForLanguageModeling,
+    get_scheduler,
+)
 from transformers.utils import logging
+from transformers.tokenization_utils_base import PreTrainedTokenizerBase
+import bitsandbytes as bnb
 
 logger = logging.get_logger(__name__)
 
@@ -23,6 +30,7 @@ def set_wandb_env_vars(cfg):
 
 
 # From https://www.kaggle.com/theoviel/evaluation-metric-folds-baseline
+
 
 def micro_f1(preds, truths):
     """
@@ -74,35 +82,46 @@ def span_micro_f1(preds, truths):
     for pred, truth in zip(preds, truths):
         if not len(pred) and not len(truth):
             continue
-        length = max(np.max(pred) if len(pred) else 0, np.max(truth) if len(truth) else 0)
+        length = max(
+            np.max(pred) if len(pred) else 0, np.max(truth) if len(truth) else 0
+        )
         bin_preds.append(spans_to_binary(pred, length))
         bin_truths.append(spans_to_binary(truth, length))
     return micro_f1(bin_preds, bin_truths)
+
 
 def get_score(y_true, y_pred):
     score = span_micro_f1(y_true, y_pred)
     return score
 
+
 def get_results(char_probs, th=0.5):
     results = []
     for char_prob in char_probs:
         result = np.where(char_prob >= th)[0] + 1
-        result = [list(g) for _, g in itertools.groupby(result, key=lambda n, c=itertools.count(): n - next(c))]
+        result = [
+            list(g)
+            for _, g in itertools.groupby(
+                result, key=lambda n, c=itertools.count(): n - next(c)
+            )
+        ]
         result = [f"{min(r)} {max(r)}" for r in result]
         result = ";".join(result)
         results.append(result)
     return results
+
 
 def get_predictions(results):
     predictions = []
     for result in results:
         prediction = []
         if result != "":
-            for loc in [s.split() for s in result.split(';')]:
+            for loc in [s.split() for s in result.split(";")]:
                 start, end = int(loc[0]), int(loc[1])
                 prediction.append([start, end])
         predictions.append(prediction)
     return predictions
+
 
 def get_location_predictions(preds, dataset):
     """
@@ -237,7 +256,7 @@ def reinit_model_weights(model, n_layers, config):
     else:
         std = config.initializer_range
 
-    if n_layers > 0: 
+    if n_layers > 0:
         if config.model_type == "bart":
             encoder_layers = backbone.encoder.layers
             decoder_layers = backbone.decoder.layers
@@ -250,9 +269,11 @@ def reinit_model_weights(model, n_layers, config):
 
     reinit_modules([model.output], std)
 
+
 def reinit_layers(layers, n_layers, std):
     for layer in layers[-n_layers:]:
         reinit_modules(layer.modules(), std)
+
 
 def reinit_modules(modules, std, reinit_embeddings=False):
     for module in modules:
@@ -290,6 +311,48 @@ def layerwise_learning_rate(model, lr=3e-5, wd=0.01, alpha=0.8):
     return optimizer_grouped_parameters
 
 
+def create_optimizer(model, train_args):
+    return bnb.optim.Adam8bit(
+        model,
+        lr=train_args.learning_rate,
+        weight_decay=train_args.weight_decay,
+        betas=(train_args.adam_beta1, train_args.adam_beta2),
+        eps=train_args.adam_epsilon,
+    )
+
+
+def create_scheduler(self, num_training_steps, optimizer, train_args, **kwargs):
+
+    # if self.run_config.lr_scheduler == "step":
+    #     milestones = [m * num_training_steps for m in self.run_config.lr_milestones]
+    #     scheduler = lr_scheduler.MultiStepLR(
+    #         optimizer,
+    #         milestones=milestones,
+    #         gamma=self.run_config.lr_gamma,
+    #     )
+
+    # else:
+    if train_args.warmup_ratio > 0:
+        warmup_steps = num_training_steps * train_args.warmup_ratio
+    else:
+        warmup_steps = train_args.warmup_steps
+
+    scheduler = get_scheduler(
+        train_args.lr_scheduler_type,
+        optimizer,
+        warmup_steps,
+        num_training_steps,
+    )
+
+    # if self.run_config.use_swa:
+    #     self.swa_scheduler = SWALR(
+    #         optimizer,
+    #         swa_lr=self.run_config.swa_lr,
+    #         anneal_epochs=self.run_config.swa_anneal_steps,
+    #     )
+    return scheduler
+
+
 def uniform_learning_rate(model, lr, wd=0.01):
 
     no_decay = ["bias", "LayerNorm.weight"]
@@ -313,3 +376,82 @@ def uniform_learning_rate(model, lr, wd=0.01):
             "lr": lr,
         },
     ]
+
+
+def freeze_layers(model, n_layers, freeze_embeds=True):
+    if freeze_embeds:
+        model.embeddings.requires_grad_(False)
+
+    model.encoder.layer[:n_layers].requires_grad_(False)
+
+
+@dataclass
+class OnlyMaskingCollator(DataCollatorForLanguageModeling):
+    """
+    Data collator used for language modeling. Inputs are dynamically padded to the maximum length of a batch if they
+    are not all of the same length.
+    Args:
+        tokenizer ([`PreTrainedTokenizer`] or [`PreTrainedTokenizerFast`]):
+            The tokenizer used for encoding the data.
+        mlm (`bool`, *optional*, defaults to `True`):
+            Whether or not to use masked language modeling. If set to `False`, the labels are the same as the inputs
+            with the padding tokens ignored (by setting them to -100). Otherwise, the labels are -100 for non-masked
+            tokens and the value to predict for the masked token.
+        mlm_probability (`float`, *optional*, defaults to 0.15):
+            The probability with which to (randomly) mask tokens in the input, when `mlm` is set to `True`.
+        pad_to_multiple_of (`int`, *optional*):
+            If set will pad the sequence to a multiple of the provided value.
+        return_tensors (`str`):
+            The type of Tensor to return. Allowable values are "np", "pt" and "tf".
+    <Tip>
+    For best performance, this data collator should be used with a dataset having items that are dictionaries or
+    BatchEncoding, with the `"special_tokens_mask"` key, as returned by a [`PreTrainedTokenizer`] or a
+    [`PreTrainedTokenizerFast`] with the argument `return_special_tokens_mask=True`.
+    </Tip>"""
+
+    tokenizer: PreTrainedTokenizerBase
+    mlm: bool = True
+    mlm_probability: float = 0.15
+    pad_to_multiple_of: Optional[int] = None
+    return_tensors: str = "pt"
+
+    def torch_mask_tokens(
+        self, inputs: Any, special_tokens_mask: Optional[Any] = None
+    ) -> Tuple[Any, Any]:
+        """
+        Prepare masked tokens inputs/labels for masked language modeling: 80% MASK, 10% random, 10% original.
+        """
+        import torch
+
+        labels = inputs.clone()
+        # We sample a few tokens in each sequence for MLM training (with probability `self.mlm_probability`)
+        probability_matrix = torch.full(labels.shape, self.mlm_probability)
+        if special_tokens_mask is None:
+            special_tokens_mask = [
+                self.tokenizer.get_special_tokens_mask(
+                    val, already_has_special_tokens=True
+                )
+                for val in labels.tolist()
+            ]
+            special_tokens_mask = torch.tensor(special_tokens_mask, dtype=torch.bool)
+        else:
+            special_tokens_mask = special_tokens_mask.bool()
+
+        probability_matrix.masked_fill_(special_tokens_mask, value=0.0)
+        masked_indices = torch.bernoulli(probability_matrix).bool()
+        labels[~masked_indices] = -100  # We only compute loss on masked tokens
+
+        # 80% of the time, we replace masked input tokens with tokenizer.mask_token ([MASK])
+        # indices_replaced = torch.bernoulli(torch.full(labels.shape, 0.8)).bool() & masked_indices
+        # inputs[indices_replaced] = self.tokenizer.convert_tokens_to_ids(self.tokenizer.mask_token)
+        inputs[masked_indices] = self.tokenizer.convert_tokens_to_ids(
+            self.tokenizer.mask_token
+        )
+
+        # # 10% of the time, we replace masked input tokens with random word
+        # indices_random = torch.bernoulli(torch.full(labels.shape, 0.5)).bool() & masked_indices & ~indices_replaced
+        # random_words = torch.randint(len(self.tokenizer), labels.shape, dtype=torch.long)
+        # inputs[indices_random] = random_words[indices_random]
+
+        # The rest of the time (10% of the time) we keep the masked input tokens unchanged
+        return inputs, labels
