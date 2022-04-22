@@ -62,7 +62,7 @@ if __name__ == "__main__":
         print(f"Eval dataset length: {len(eval_dataset)}")
         compute_metrics = partial(kaggle_metrics, dataset=eval_dataset)
 
-        model_config = AutoConfig.from_pretrained(cfg["model_name_or_path"], use_auth_token=True)
+        model_config = AutoConfig.from_pretrained(cfg["model_name_or_path"], use_auth_token=os.environ.get("HUGGINGFACE_HUB_TOKEN", True))
         model_config.update(
             {
                 "num_labels": 1,
