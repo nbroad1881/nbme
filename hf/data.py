@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from ast import literal_eval
 from functools import partial
@@ -336,24 +337,10 @@ class NERDataModule:
         if self.cfg["DEBUG"]:
             self.train_df = self.train_df.sample(n=1000)
 
-        if (
-            "deberta-v2" in self.cfg["model_name_or_path"]
-            or "deberta-v3" in self.cfg["model_name_or_path"]
-            or "d3" in self.cfg["model_name_or_path"]
-        ):
-            from transformers.models.deberta_v2.tokenization_deberta_v2_fast import (
-                DebertaV2TokenizerFast,
-            )
-
-            self.tokenizer = DebertaV2TokenizerFast.from_pretrained(
-                self.cfg["model_name_or_path"],
-                use_auth_token=True,
-            )
-        else:
-            self.tokenizer = AutoTokenizer.from_pretrained(
-                self.cfg["model_name_or_path"],
-                use_auth_token=True,
-            )
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            self.cfg["model_name_or_path"],
+            use_auth_token=os.environ.get("HUGGINGFACE_HUB_TOKEN", True),
+        )
 
     def prepare_datasets(self, fold):
 
@@ -418,21 +405,7 @@ class MLMDataModule:
         if self.cfg["DEBUG"]:
             self.train_df = self.train_df.sample(n=1000)
 
-        if (
-            "deberta-v2" in self.cfg["model_name_or_path"]
-            or "deberta-v3" in self.cfg["model_name_or_path"]
-        ):
-            from transformers.models.deberta_v2.tokenization_deberta_v2_fast import (
-                DebertaV2TokenizerFast,
-            )
-
-            self.tokenizer = DebertaV2TokenizerFast.from_pretrained(
-                self.cfg["model_name_or_path"]
-            )
-        else:
-            self.tokenizer = AutoTokenizer.from_pretrained(
-                self.cfg["model_name_or_path"]
-            )
+        self.tokenizer = AutoTokenizer.from_pretrained(self.cfg["model_name_or_path"])
 
     def prepare_datasets(self, fold):
 
