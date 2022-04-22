@@ -1,5 +1,5 @@
 # @torch.inference_mode()
-
+import os
 from typing import Any, Optional, Union, Tuple
 from dataclasses import dataclass
 
@@ -8,8 +8,14 @@ from torch import nn
 from transformers.file_utils import ModelOutput
 from transformers import PreTrainedModel, logging, AutoModel
 from transformers.activations import ACT2FN
-from transformers.models.deberta.modeling_deberta import DebertaPreTrainedModel, DebertaModel
-from transformers.models.deberta_v2.modeling_deberta_v2 import DebertaV2PreTrainedModel, DebertaV2Model
+from transformers.models.deberta.modeling_deberta import (
+    DebertaPreTrainedModel,
+    DebertaModel,
+)
+from transformers.models.deberta_v2.modeling_deberta_v2 import (
+    DebertaV2PreTrainedModel,
+    DebertaV2Model,
+)
 from transformers.modeling_outputs import MaskedLMOutput
 
 from focal_loss import FocalLoss
@@ -40,7 +46,7 @@ class CustomModel(PreTrainedModel):
         self.backbone = AutoModel.from_config(config)
 
         self.dropout = nn.Dropout(config.output_dropout)
-        self.dropouts = [nn.Dropout(d / 10) for d in range(1, 6)]
+        self.dropouts = [nn.Dropout(0.5) for d in range(8)]
         self.output = nn.Linear(config.hidden_size, config.num_labels)
 
         if config.to_dict().get("use_crf"):
@@ -70,18 +76,22 @@ class CustomModel(PreTrainedModel):
             position_ids=position_ids,
         )
 
-        sequence_output = self.dropout(outputs.last_hidden_state)
+        sequence_output = outputs.last_hidden_state
 
         # if labels, then we are training
         loss = None
         crf_output = None
         if labels is not None:
 
-            all_logits = [
-                self.output(self.dropouts[i](sequence_output)) for i in range(5)
-            ]
+            all_logits = torch.stack(
+                [
+                    self.output(drpt(sequence_output))
+                    for drpt in self.dropouts
+                ],
+                dim=0,
+            )
 
-            logits = sum(all_logits) / len(self.dropouts)
+            logits = torch.mean(all_logits, dim=0)
 
             if self.config and self.config.to_dict().get("use_crf"):
 
@@ -94,14 +104,14 @@ class CustomModel(PreTrainedModel):
             elif self.config.to_dict().get("use_focal_loss"):
                 pass
             else:
-                all_losses = [
+                all_losses = torch.stack([
                     self.loss_fn(
                         lgts.view(-1, self.config.num_labels),
                         labels.view(-1, self.config.num_labels),
                     )
                     for lgts in all_logits
-                ]
-                loss = sum(all_losses) / len(self.dropouts)
+                ], dim=0)
+                loss = torch.mean(all_losses, dim=0)
                 loss = torch.masked_select(
                     loss, labels.view(-1, self.config.num_labels) > -1
                 ).mean()
@@ -125,9 +135,125 @@ def get_pretrained(config, model_path):
     if model_path.endswith("pytorch_model.bin"):
         model.load_state_dict(torch.load(model_path))
     else:
-        model.backbone = AutoModel.from_pretrained(model_path, use_auth_token=True)
+        model.backbone = AutoModel.from_pretrained(
+            model_path, use_auth_token=os.environ.get("HUGGINGFACE_HUB_TOKEN", True)
+        )
 
     return model
+
+
+class LSTMCharHead(nn.Module):
+    def __init__(
+        self,
+        len_voc,
+        use_msd=True,
+        embed_dim=64,
+        lstm_dim=64,
+        char_embed_dim=32,
+        sent_embed_dim=32,
+        ft_lstm_dim=32,
+        n_models=1,
+    ):
+        super().__init__()
+        self.use_msd = use_msd
+
+        self.proba_lstm = nn.LSTM(
+            n_models * 2, ft_lstm_dim, batch_first=True, bidirectional=True
+        )
+
+        self.lstm = nn.LSTM(
+            char_embed_dim + ft_lstm_dim * 2 + sent_embed_dim,
+            lstm_dim,
+            batch_first=True,
+            bidirectional=True,
+        )
+        self.lstm2 = nn.LSTM(
+            lstm_dim * 2, lstm_dim, batch_first=True, bidirectional=True
+        )
+
+        self.logits = nn.Sequential(
+            nn.Linear(lstm_dim * 4, lstm_dim),
+            nn.ReLU(),
+            nn.Linear(lstm_dim, 2),
+        )
+
+        self.high_dropout = nn.Dropout(p=0.5)
+
+    def forward(self, tokens, sentiment, token_probas):
+        bs, T = tokens.size()
+
+        probas_fts, _ = self.proba_lstm(token_probas)
+
+        char_fts = self.char_embeddings(tokens)
+
+        sentiment_fts = self.sentiment_embeddings(sentiment).view(bs, 1, -1)
+        sentiment_fts = sentiment_fts.repeat((1, T, 1))
+
+        features = torch.cat([char_fts, sentiment_fts, probas_fts], -1)
+        features, _ = self.lstm(features)
+        features2, _ = self.lstm2(features)
+
+        features = torch.cat([features, features2], -1)
+
+        if self.use_msd and self.training:
+            logits = torch.mean(
+                torch.stack(
+                    [self.logits(self.high_dropout(features)) for _ in range(5)],
+                    dim=0,
+                ),
+                dim=0,
+            )
+        else:
+            logits = self.logits(features)
+
+        start_logits, end_logits = logits[:, :, 0], logits[:, :, 1]
+
+        return start_logits, end_logits
+
+
+class ConvBlock(nn.Module):
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        kernel_size=3,
+        stride=1,
+        dilation=1,
+        padding="same",
+        use_bn=True,
+    ):
+        super().__init__()
+        if padding == "same":
+            padding = kernel_size // 2 * dilation
+
+        if use_bn:
+            self.conv = nn.Sequential(
+                nn.Conv1d(
+                    in_channels,
+                    out_channels,
+                    kernel_size,
+                    padding=padding,
+                    stride=stride,
+                    dilation=dilation,
+                ),
+                nn.BatchNorm1d(out_channels),
+                nn.ReLU(),
+            )
+        else:
+            self.conv = nn.Sequential(
+                nn.Conv1d(
+                    in_channels,
+                    out_channels,
+                    kernel_size,
+                    padding=padding,
+                    stride=stride,
+                    dilation=dilation,
+                ),
+                nn.ReLU(),
+            )
+
+    def forward(self, x):
+        return self.conv(x)
 
 
 class GatedDense(nn.Module):
@@ -146,6 +272,7 @@ class GatedDense(nn.Module):
         hidden_states = self.dropout(hidden_states)
         hidden_states = self.wo(hidden_states)
         return hidden_states
+
 
 class DebertaForMaskedLM(DebertaPreTrainedModel):
     _keys_to_ignore_on_load_unexpected = [r"pooler"]
@@ -185,7 +312,9 @@ class DebertaForMaskedLM(DebertaPreTrainedModel):
             loss is only computed for the tokens with labels in `[0, ..., config.vocab_size]`
         """
 
-        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+        return_dict = (
+            return_dict if return_dict is not None else self.config.use_return_dict
+        )
 
         outputs = self.deberta(
             input_ids,
@@ -204,11 +333,15 @@ class DebertaForMaskedLM(DebertaPreTrainedModel):
         masked_lm_loss = None
         if labels is not None:
             loss_fct = nn.CrossEntropyLoss()  # -100 index = padding token
-            masked_lm_loss = loss_fct(prediction_scores.view(-1, self.config.vocab_size), labels.view(-1))
+            masked_lm_loss = loss_fct(
+                prediction_scores.view(-1, self.config.vocab_size), labels.view(-1)
+            )
 
         if not return_dict:
             output = (prediction_scores,) + outputs[1:]
-            return ((masked_lm_loss,) + output) if masked_lm_loss is not None else output
+            return (
+                ((masked_lm_loss,) + output) if masked_lm_loss is not None else output
+            )
 
         return MaskedLMOutput(
             loss=masked_lm_loss,
@@ -216,6 +349,7 @@ class DebertaForMaskedLM(DebertaPreTrainedModel):
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
         )
+
 
 # copied from transformers.models.bert.BertLMPredictionHead with bert -> deberta
 class DebertaLMPredictionHead(nn.Module):
@@ -295,7 +429,9 @@ class DebertaV2ForMaskedLM(DebertaV2PreTrainedModel):
             loss is only computed for the tokens with labels in `[0, ..., config.vocab_size]`
         """
 
-        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+        return_dict = (
+            return_dict if return_dict is not None else self.config.use_return_dict
+        )
 
         outputs = self.deberta(
             input_ids,
@@ -314,11 +450,15 @@ class DebertaV2ForMaskedLM(DebertaV2PreTrainedModel):
         masked_lm_loss = None
         if labels is not None:
             loss_fct = nn.CrossEntropyLoss()  # -100 index = padding token
-            masked_lm_loss = loss_fct(prediction_scores.view(-1, self.config.vocab_size), labels.view(-1))
+            masked_lm_loss = loss_fct(
+                prediction_scores.view(-1, self.config.vocab_size), labels.view(-1)
+            )
 
         if not return_dict:
             output = (prediction_scores,) + outputs[1:]
-            return ((masked_lm_loss,) + output) if masked_lm_loss is not None else output
+            return (
+                ((masked_lm_loss,) + output) if masked_lm_loss is not None else output
+            )
 
         return MaskedLMOutput(
             loss=masked_lm_loss,
