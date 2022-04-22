@@ -125,23 +125,7 @@ class SaveCallback(TrainerCallback):
             logger.info(f"Saving model.")
             self.min_score_to_save = metric_value
             kwargs["model"].config.update({"best_cv_f1": metric_value})
-
-            if self.save_weights_only:
-                new_dir = os.path.join(args.output_dir, f"weights-{state.global_step}")
-                os.makedirs(new_dir, exist_ok=True)
-                torch.save(kwargs["model"].state_dict(), os.path.join(new_dir, "pytorch_model.bin"))
-                kwargs["model"].config.save_pretrained(new_dir)
-            else:
-                state.should_save = True
-                new_dir = os.path.join(args.output_dir, f"checkpoint-{state.global_step}")
-                
-            self.save_dirs.append(new_dir)
-            
-            # remove oldest if over save limit
-            if len(self.save_dirs) > args.save_total_limit:
-                to_remove = self.save_dirs.popleft()
-                shutil.rmtree(to_remove)
-
+            state.should_save = True
         else:
             logger.info("Not saving model.")
 
