@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 from ast import literal_eval
 from functools import partial
@@ -20,11 +21,8 @@ def create_folds(df, kfolds=8, groups_col="pn_num"):
         df should be merge of `train.csv`, `features.csv`, and `patient_notes.csv`
     """
     gkf = GroupKFold(n_splits=kfolds)
-    df["fold"] = -1
-    for fold, (_, val_idx) in enumerate(gkf.split(df, groups=df[groups_col])):
-        df.loc[val_idx, "fold"] = fold
-
-    return df
+    fold_idxs = [val_idx for _, val_idx in gkf.split(df, groups=df[groups_col])]
+    return fold_idxs
 
 
 def fix_annotations(df):
@@ -299,6 +297,32 @@ def tokenize(example, tokenizer, max_seq_length, padding):
     return tokenized_inputs
 
 
+def substitute_for_newline(text):
+    repl = " [n] "
+    pattern = "[\n\r]+"
+
+    matches = re.finditer(pattern, text)
+
+    new_text = re.sub(pattern, repl, text)
+
+    return new_text, matches
+
+
+def inverse_substitution(text, matches):
+
+    for m in matches:
+        text = text.replace(" [n] ", m.group(0), 1)
+
+    return text
+
+
+def insert_token(matches, offsets, input_ids, seq_ids, attention_mask):
+    new_inp_ids, new_seq_ids, new_mask = [], [], []
+
+    for m in matches:
+        m_start, m_end = m.start(), m.end()
+
+
 @dataclass
 class NERDataModule:
 
@@ -321,7 +345,7 @@ class NERDataModule:
         train_df = train_df.merge(notes_df, on=["pn_num", "case_num"], how="left")
         train_df = fix_annotations(train_df)
 
-        train_df = create_folds(train_df, kfolds=self.cfg["k_folds"])
+        self.fold_idxs = create_folds(train_df, kfolds=self.cfg["k_folds"])
 
         train_df["annotation"] = [literal_eval(x) for x in train_df.annotation]
         train_df["location"] = [literal_eval(x) for x in train_df.location]
@@ -342,18 +366,11 @@ class NERDataModule:
             use_auth_token=os.environ.get("HUGGINGFACE_HUB_TOKEN", True),
         )
 
-    def prepare_datasets(self, fold):
+    def prepare_datasets(self):
 
-        self.dataset = DatasetDict()
+        self.dataset = Dataset.from_pandas(self.train_df)
 
-        self.dataset["train"] = Dataset.from_pandas(
-            self.train_df[self.train_df["fold"] != fold].copy().reset_index(drop=True)
-        )
-        self.dataset["validation"] = Dataset.from_pandas(
-            self.train_df[self.train_df["fold"] == fold].copy().reset_index(drop=True)
-        )
-
-        self.dataset["train"] = self.dataset["train"].map(
+        self.dataset = self.dataset.map(
             partial(
                 tokenize,
                 tokenizer=self.tokenizer,
@@ -365,23 +382,12 @@ class NERDataModule:
             remove_columns=[],
         )
 
-        self.dataset["validation"] = self.dataset["validation"].map(
-            partial(
-                tokenize,
-                tokenizer=self.tokenizer,
-                max_seq_length=self.cfg["max_seq_length"],
-                padding=self.cfg["padding"],
-            ),
-            batched=False,
-            num_proc=self.cfg["num_proc"],
-            remove_columns=[],
-        )
+    def get_train_dataset(self, fold):
+        idxs = list(chain(*[i for f, i in enumerate(self.fold_idxs) if f != fold]))
+        return self.dataset.select(idxs)
 
-    def get_train_dataset(self):
-        return self.dataset["train"]
-
-    def get_eval_dataset(self):
-        return self.dataset["validation"]
+    def get_eval_dataset(self, fold):
+        return self.dataset.select(self.fold_idxs[fold])
 
 
 @dataclass
