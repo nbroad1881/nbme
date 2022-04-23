@@ -1,10 +1,11 @@
 import os
 import itertools
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple
 
 import torch
 import numpy as np
+import pandas as pd
 from scipy.special import expit
 
 from sklearn.metrics import precision_recall_fscore_support, f1_score
@@ -161,7 +162,8 @@ def kaggle_metrics(eval_prediction, dataset):
     into the `compute_metrics` function.
     """
 
-    pred_idxs = get_location_predictions(expit(eval_prediction.predictions), dataset)
+    # eval_prediction[0] are the predictions
+    pred_idxs = get_location_predictions(expit(eval_prediction[0]), dataset)
 
     all_labels = []
     all_preds = []
@@ -453,3 +455,27 @@ class OnlyMaskingCollator(DataCollatorForLanguageModeling):
 
         # The rest of the time (10% of the time) we keep the masked input tokens unchanged
         return inputs, labels
+
+
+def log_training_dynamics(
+    output_dir: os.path,
+    epoch: int,
+    train_ids: List[int],
+    train_logits: List[List[float]],
+    train_golds: List[int],
+):
+    """
+    For dataset cartography
+    Save training dynamics (logits) from given epoch as records of a `.jsonl` file.
+    """
+    td_df = pd.DataFrame(
+        {"guid": train_ids, f"logits_epoch_{epoch}": train_logits, "gold": train_golds}
+    )
+
+    logging_dir = os.path.join(output_dir, f"training_dynamics")
+    # Create directory for logging training dynamics, if it doesn't already exist.
+    if not os.path.exists(logging_dir):
+        os.makedirs(logging_dir)
+    epoch_file_name = os.path.join(logging_dir, f"dynamics_epoch_{epoch}.jsonl")
+    td_df.to_json(epoch_file_name, lines=True, orient="records")
+    logger.info(f"Training Dynamics logged to {epoch_file_name}")
