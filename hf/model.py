@@ -291,7 +291,7 @@ class DebertaForMaskedLM(DebertaPreTrainedModel):
         return self.lm_predictions.lm_head.decoder
 
     def set_output_embeddings(self, new_embeddings):
-        self.m_predictions.lm_head.decoder = new_embeddings
+        self.lm_predictions.lm_head.decoder = new_embeddings
 
     def forward(
         self,
