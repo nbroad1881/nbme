@@ -110,6 +110,11 @@ if __name__ == "__main__":
             trainer.model.load_state_dict(torch.load(os.path.join(args.output_dir, 'swa_weights.bin')))
             eval_results = trainer.evaluate()
 
+        trainer.log({"best_cv_f1": trainer.model.config.to_dict().get("best_cv_f1")})
+        model.config.update({"wandb_id": wandb.run.id, "wandb_name": wandb.run.name})
+        model.config.save_pretrained(args.output_dir)
+        trainer.push_to_hub()
+
         wandb.finish()
 
         torch.cuda.empty_cache()
