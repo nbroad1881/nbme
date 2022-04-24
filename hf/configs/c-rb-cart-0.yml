@@ -1,5 +1,5 @@
  # RunArguments
-DEBUG: no
+DEBUG: yes
 k_folds: 5
 num_proc: 7
 max_seq_length: 
@@ -35,8 +35,9 @@ group: round3
 tags:
   - ner
   - roberta-base
+  - cartog
 notes: >
-  carto rob-b
+  cartog rob-b
 job_type: train
 
 # TrainingArguments
@@ -109,7 +110,7 @@ training_arguments:
   evaluation_strategy: "epoch"
   eval_steps: 175
   eval_delay: 2000
-  per_device_eval_batch_size: 16
+  per_device_eval_batch_size: 8
   do_predict:
   
 # hub
