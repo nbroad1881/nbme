@@ -3,6 +3,7 @@ import logging
 import math
 import os
 import argparse
+import gc
 import datetime
 
 import datasets
@@ -99,6 +100,9 @@ def main():
     num_examples = len(train_dataset)
 
     eval_dataset = eval_dataset.map(lambda x: {"length": len(x["input_ids"])})
+    max_eval_len = max(eval_dataset["length"])
+    while max_eval_len % 8 != 0:
+        max_eval_len += 1
 
     data_collator = DataCollatorWithMasking(
         tokenizer=datamodule.tokenizer,
@@ -271,15 +275,32 @@ def main():
 
             if completed_steps >= args.max_steps:
                 break
+        
+        np.save(f"epoch{epoch}_logits.npy", train_logits)
+        np.save(f"epoch{epoch}_labels.npy", train_labels)
+        np.save(f"epoch{epoch}_ids.npy", np.array(train_ids))
+
+        del train_logits, train_labels, train_ids
+        gc.collect()
 
         model.eval()
+        predictions = []
         for step, batch in enumerate(eval_dataloader):
             outputs = model(
                 input_ids=batch["input_ids"],
                 attention_mask=batch["attention_mask"],
                 labels=batch["labels"]
             )
-            predictions = outputs.logits.sigmoid().detach().cpu().numpy()
+            bs = batch["input_ids"].size(0)
+            seq_len = batch["input_ids"].size(-1)
+
+            temp = np.zeros((bs, max_eval_len))
+            temp[:, :seq_len] = outputs.logits.sigmoid().detach().cpu().numpy().squeeze()
+            predictions.append(temp)
+
+
+        predictions = np.vstack(predictions)
+        
 
         eval_metrics = kaggle_metrics([predictions], eval_dataset)
 
@@ -301,9 +322,6 @@ def main():
         #     train_logits=train_logits,
         #     train_labels=train_labels,
         # )
-        np.save(f"epoch{epoch}_logits.npy", train_logits)
-        np.save(f"epoch{epoch}_labels.npy", train_labels)
-        np.save(f"epoch{epoch}_ids.npy", np.array(train_ids))
 
 if __name__ == "__main__":
     main()
