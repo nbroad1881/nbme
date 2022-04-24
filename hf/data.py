@@ -345,7 +345,6 @@ class NERDataModule:
         train_df = train_df.merge(notes_df, on=["pn_num", "case_num"], how="left")
         train_df = fix_annotations(train_df)
 
-        self.fold_idxs = create_folds(train_df, kfolds=self.cfg["k_folds"])
 
         train_df["annotation"] = [literal_eval(x) for x in train_df.annotation]
         train_df["location"] = [literal_eval(x) for x in train_df.location]
@@ -360,6 +359,13 @@ class NERDataModule:
         self.train_df = train_df.sample(frac=1, random_state=42)
         if self.cfg["DEBUG"]:
             self.train_df = self.train_df.sample(n=1000)
+
+
+        self.fold_idxs = create_folds(self.train_df, kfolds=self.cfg["k_folds"])
+
+        self.train_df["temp_id"] = list(range(len(self.train_df)))
+        self.train_df[["id", "temp_id"]].to_csv("id2id.csv", index=False)
+        self.train_df["id"] = self.train_df["temp_id"]
 
         self.tokenizer = AutoTokenizer.from_pretrained(
             self.cfg["model_name_or_path"],
