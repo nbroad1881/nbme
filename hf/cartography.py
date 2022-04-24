@@ -3,7 +3,7 @@ import logging
 import math
 import os
 import argparse
-from datetime import datetime
+import datetime
 
 import datasets
 from torch.utils.data import DataLoader
@@ -40,14 +40,15 @@ def get_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("config_file", type=str)
 
+    return parser
 
 def main():
 
     parser = get_parser()
     pargs = parser.parse_args()
 
-    output = pargs["config_file"].split(".")[0]
-    cfg, args = get_configs(pargs["config_file"])
+    output = pargs.config_file.split(".")[0]
+    cfg, args = get_configs(pargs.config_file)
     set_seed(args["seed"])
     set_wandb_env_vars(cfg)
 
@@ -80,42 +81,40 @@ def main():
     with accelerator.main_process_first():
         datamodule.prepare_datasets()
 
-    for fold in range(cfg["k_folds"]):
+    # for fold in range(cfg["k_folds"]):
+    fold = 0
+    cfg, args = get_configs(pargs.config_file)
+    cfg["fold"] = fold
+    args["output_dir"] = f"{output}-f{fold}"
 
-        cfg, args = get_configs(pargs["config_file"])
-        cfg["fold"] = fold
-        args["output_dir"] = f"{output}-f{fold}"
+    args = TrainingArguments(**args)
 
-        args = TrainingArguments(**args)
+    train_dataset = datamodule.get_train_dataset(fold=fold)
+    eval_dataset = datamodule.get_eval_dataset(fold=fold)
 
-        # Callbacks
-        wb_callback = NewWandbCB(cfg)
-        save_callback = SaveCallback(
-            min_score_to_save=cfg["min_score_to_save"], metric_name="eval_f1"
-        )
-        masking_callback = MaskingProbCallback(cfg["masking_prob"])
+    train_dataset = train_dataset.map(lambda x: {"length": len(x["input_ids"])})
+    max_len = max(train_dataset["length"])
+    num_examples = len(train_dataset)
 
-        callbacks = [wb_callback, save_callback, masking_callback]
+    data_collator = DataCollatorWithMasking(
+        tokenizer=datamodule.tokenizer,
+        return_tensors="pt",
+        padding="longest",
+        pad_to_multiple_of=8,
+        label_pad_token_id=-100,
+    )
 
-        train_dataset = datamodule.get_train_dataset(fold=fold)
-        eval_dataset = datamodule.get_eval_dataset(fold=fold)
-
-        data_collator = DataCollatorWithMasking(
-            tokenizer=datamodule.tokenizer,
-            return_tensors="pt",
-            padding="longest",
-            pad_to_multiple_of=8,
-            label_pad_token_id=-100,
-        )
+    ds_cols = train_dataset.column_names
+    keep_cols = {"input_ids", "attention_mask", "labels", "id"}
 
     train_dataloader = DataLoader(
-        train_dataset,
+        train_dataset.remove_columns([x for x in ds_cols if x not in keep_cols]),
         shuffle=True,
         collate_fn=data_collator,
         batch_size=args.per_device_train_batch_size,
     )
     eval_dataloader = DataLoader(
-        eval_dataset,
+        eval_dataset.remove_columns([x for x in ds_cols if x not in keep_cols]),
         collate_fn=data_collator,
         batch_size=args.per_device_eval_batch_size,
     )
@@ -124,6 +123,7 @@ def main():
     model_config.update(
         {
             "num_labels": 1,
+            "output_dropout": 0.1,
             "hidden_dropout_prob": cfg["dropout"],
             "layer_norm_eps": cfg["layer_norm_eps"],
             "run_start": str(datetime.datetime.utcnow()),
@@ -172,7 +172,7 @@ def main():
     lr_scheduler = get_scheduler(
         name=args.lr_scheduler_type,
         optimizer=optimizer,
-        num_warmup_steps=args.num_warmup_steps,
+        num_warmup_steps=args.warmup_steps,
         num_training_steps=args.max_steps,
     )
 
@@ -189,11 +189,11 @@ def main():
 
     # We need to initialize the trackers we use, and also store our configuration
     if "wandb" in args.report_to:
-        experiment_config = vars({**cfg, **args.to_dict()})
+        experiment_config = {**cfg, **args.to_dict()}
         # TensorBoard cannot log Enums, need the raw value
         experiment_config["lr_scheduler_type"] = experiment_config[
             "lr_scheduler_type"
-        ].value
+        ]
         accelerator.init_trackers("nbme-dataset-cartography", experiment_config)
 
     # Train!
@@ -225,30 +225,30 @@ def main():
         if "wandb" in args.report_to:
             total_loss = 0
 
-        train_logits = None
-        train_labels = None
-        train_ids = None
+        train_logits = np.zeros((args.num_train_epochs, num_examples, max_len), dtype=np.float16)
+        train_labels = np.zeros((args.num_train_epochs, num_examples, max_len), dtype=np.float16)
+        train_ids = np.array()
+        start_idx = 0
 
         for step, batch in enumerate(train_dataloader):
 
             outputs = model(
                 input_ids=batch["input_ids"],
                 attention_mask=batch["attention_mask"],
+                labels=batch["labels"]
             )
 
-            if train_logits is None:
-                train_logits = outputs.logits.detach().cpu().numpy()
-                train_labels = batch["labels"].detach().cpu().numpy()
-                train_ids = batch["id"].detach().cpu().numpy()
-            else:
-                train_logits = np.append(
-                    train_logits, outputs.logits.detach().cpu().numpy()
-                )
-                train_labels = np.append(
-                    train_labels, batch["labels"].detach().cpu().numpy()
-                )
-                train_ids = np.append(train_ids, batch["id"].detach().cpu().numpy())
+            import pdb; pdb.set_trace()
+            batch_size = batch["input_ids"].shape[0]
+            batch_len = batch["input_ids"].shape[-1]
 
+            train_logits[epoch, start_idx:start_idx+batch_size, :batch_len] = outputs.logits.detach().cpu().numpy()
+            train_labels[epoch, start_idx:start_idx+batch_size, :batch_len] = batch["labels"].detach().cpu().numpy()
+            train_ids = np.concatenate(train_ids, batch["id"].detach().cpu().numpy())
+
+            start_idx += batch_size
+            
+            loss = outputs.loss
             # We keep track of the loss at each epoch
             if "wandb" in args.report_to:
                 total_loss += loss.detach().float()
@@ -270,8 +270,12 @@ def main():
 
         model.eval()
         for step, batch in enumerate(eval_dataloader):
-            outputs = model(**batch)
-            predictions = outputs.logits.sigmoid()
+            outputs = model(
+                input_ids=batch["input_ids"],
+                attention_mask=batch["attention_mask"],
+                labels=batch["labels"]
+            )
+            predictions = outputs.logits.sigmoid().detach().cpu().numpy()
 
         eval_metrics = kaggle_metrics([predictions], eval_dataset)
 
@@ -286,14 +290,16 @@ def main():
             )
 
         # average
-        log_training_dynamics(
-            output_dir=args.output_dir,
-            epoch=epoch,
-            train_ids=list(train_ids),
-            train_logits=list(train_logits),
-            train_labels=list(train_labels),
-        )
-
+        # log_training_dynamics(
+        #     output_dir=args.output_dir,
+        #     epoch=epoch,
+        #     train_ids=train_ids,
+        #     train_logits=train_logits,
+        #     train_labels=train_labels,
+        # )
+        np.save(f"epoch{epoch}_logits.npy", train_logits)
+        np.save(f"epoch{epoch}_labels.npy", train_labels)
+        np.save(f"epoch{epoch}_ids.npy", np.array(train_ids))
 
 if __name__ == "__main__":
     main()
