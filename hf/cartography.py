@@ -94,7 +94,11 @@ def main():
 
     train_dataset = train_dataset.map(lambda x: {"length": len(x["input_ids"])})
     max_len = max(train_dataset["length"])
+    while max_len % 8 != 0:
+        max_len += 1
     num_examples = len(train_dataset)
+
+    eval_dataset = eval_dataset.map(lambda x: {"length": len(x["input_ids"])})
 
     data_collator = DataCollatorWithMasking(
         tokenizer=datamodule.tokenizer,
@@ -227,7 +231,7 @@ def main():
 
         train_logits = np.zeros((args.num_train_epochs, num_examples, max_len), dtype=np.float16)
         train_labels = np.zeros((args.num_train_epochs, num_examples, max_len), dtype=np.float16)
-        train_ids = np.array()
+        train_ids = np.array([])
         start_idx = 0
 
         for step, batch in enumerate(train_dataloader):
@@ -238,13 +242,13 @@ def main():
                 labels=batch["labels"]
             )
 
-            import pdb; pdb.set_trace()
             batch_size = batch["input_ids"].shape[0]
             batch_len = batch["input_ids"].shape[-1]
 
-            train_logits[epoch, start_idx:start_idx+batch_size, :batch_len] = outputs.logits.detach().cpu().numpy()
-            train_labels[epoch, start_idx:start_idx+batch_size, :batch_len] = batch["labels"].detach().cpu().numpy()
-            train_ids = np.concatenate(train_ids, batch["id"].detach().cpu().numpy())
+
+            train_logits[epoch, start_idx:start_idx+batch_size, :batch_len] = outputs.logits.detach().cpu().numpy().squeeze()
+            train_labels[epoch, start_idx:start_idx+batch_size, :batch_len] = batch["labels"].detach().cpu().numpy().squeeze()
+            train_ids = np.concatenate([train_ids, batch["id"].detach().cpu().numpy().squeeze()])
 
             start_idx += batch_size
             
