@@ -28,8 +28,8 @@ from model import DebertaForMaskedLM, DebertaV2ForMaskedLM
 
 if __name__ == "__main__":
 
-    config_file = "j-deb-v2-xl-mlm.yml"
-    output = "nb-d3-l-mlm"
+    config_file = "j-dv3l-mlm-2.yml"
+    output = config_file.split(".")[0]
     cfg, args = get_configs(config_file)
     set_seed(args["seed"])
     set_wandb_env_vars(cfg)
