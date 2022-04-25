@@ -124,7 +124,7 @@ class SaveCallback(TrainerCallback):
         if metric_value > self.min_score_to_save:
             logger.info(f"Saving model.")
             self.min_score_to_save = metric_value
-            kwargs["model"].config.update({"best_cv_f1": metric_value})
+            kwargs["model"].config.update({f"best_{self.metric_name}": metric_value})
             state.should_save = True
         else:
             logger.info("Not saving model.")
