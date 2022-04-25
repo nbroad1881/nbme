@@ -417,31 +417,42 @@ class MLMDataModule:
 
         train_df = pd.read_csv(data_dir / "patient_notes.csv")
 
-
+        self.tokenizer = AutoTokenizer.from_pretrained(self.cfg["model_name_or_path"])
+        
         if self.cfg.get("newline_replacement"):
             repl = self.cfg.get("newline_replacement")
             train_df["pn_history"] = [substitute_for_newline(t, repl, return_matches=False) for t in train_df["pn_history"]]
+            self.tokenizer.add_tokens([repl.strip()])
 
         if self.cfg.get("use_lowercase"):
             train_df["pn_history"] = train_df["pn_history"].str.lower()
 
         self.train_df = train_df.sample(frac=1, random_state=42)
         if self.cfg["DEBUG"]:
-            self.train_df = self.train_df.sample(n=1000)
+            self.train_df = self.train_df.sample(n=2500)
 
-        self.fold_idxs = create_folds(self.train_df, kfolds=self.cfg["k_folds"])
+        self.fold_idxs = create_folds(self.train_df.reset_index(drop=True), kfolds=self.cfg["k_folds"])
 
-        self.tokenizer = AutoTokenizer.from_pretrained(self.cfg["model_name_or_path"])
+        
 
-    def prepare_datasets(self):
+    def prepare_datasets(self, fold):
 
-        self.dataset = Dataset.from_pandas(self.train_df)
+        self.dataset = DatasetDict()
+        
+        train_idxs = list(chain(*[i for f, i in enumerate(self.fold_idxs) if f != fold]))
+
+        self.dataset["train"] = Dataset.from_pandas(
+            self.train_df.reset_index(drop=True).loc[train_idxs]
+        )
+        self.dataset["validation"] = Dataset.from_pandas(
+            self.train_df.reset_index(drop=True).loc[self.fold_idxs[fold]]
+        )
 
         self.dataset = self.dataset.map(
             lambda x: self.tokenizer(x["pn_history"], return_special_tokens_mask=True),
             batched=True,
             num_proc=self.cfg["num_proc"],
-            remove_columns=self.dataset.column_names,
+            remove_columns=self.dataset["train"].column_names,
         )
 
         def group_texts(examples):
@@ -470,12 +481,11 @@ class MLMDataModule:
             group_texts,
             batched=True,
             num_proc=self.cfg["num_proc"],
-            remove_columns=self.dataset.column_names,
+            remove_columns=self.dataset["train"].column_names,
         )
 
-    def get_train_dataset(self, fold):
-        idxs = list(chain(*[i for f, i in enumerate(self.fold_idxs) if f != fold]))
-        return self.dataset.select(idxs)
+    def get_train_dataset(self):
+        return self.dataset["train"]
 
-    def get_eval_dataset(self, fold):
-        return self.dataset.select(self.fold_idxs[fold])
+    def get_eval_dataset(self):
+        return self.dataset["validation"]
