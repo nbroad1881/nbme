@@ -8,7 +8,7 @@ padding: no
 stride: 0
 model_name_or_path: "microsoft/deberta-v3-large"
 data_dir: "./data"
-min_score_to_save: 0.87
+min_score_to_save: 0.7
 masking_prob: 0.15
 reinit_layers: 0
 layer_norm_eps: 1e-7
@@ -65,16 +65,16 @@ training_arguments:
 
 # hyperparams
   per_device_train_batch_size: 16
-  gradient_accumulation_steps: 8
+  gradient_accumulation_steps: 1
   gradient_checkpointing: no
   group_by_length: no
-  learning_rate: 9e-5
+  learning_rate: 3e-5
   weight_decay: .01
 
 # schedule + steps
   num_train_epochs: 20
   lr_scheduler_type: linear
-  warmup_ratio: 
+  warmup_ratio: 0
   warmup_steps: 1000
   max_steps: -1
 
