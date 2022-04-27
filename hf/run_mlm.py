@@ -28,7 +28,7 @@ from model import DebertaForMaskedLM, DebertaV2ForMaskedLM
 
 if __name__ == "__main__":
 
-    config_file = "j-dv3l-mlm-2.yml"
+    config_file = "c-rl-mlm-1.yml"
     output = config_file.split(".")[0]
     cfg, args = get_configs(config_file)
     set_seed(args["seed"])
@@ -106,7 +106,8 @@ if __name__ == "__main__":
         mlm_probability=cfg["masking_prob"],
     )
 
-    num_training_steps = len(train_dataset) // args.per_device_train_batch_size // cfg["n_gpu"] * args.num_train_epochs
+    steps_per_epoch = len(train_dataset) // args.per_device_train_batch_size // cfg["n_gpu"] // args.gradient_accumulation_steps
+    num_training_steps = steps_per_epoch * args.num_train_epochs
 
     optimizer = create_optimizer(model, args)
     scheduler = create_scheduler(num_training_steps, optimizer, args)
