@@ -300,7 +300,7 @@ def tokenize(example, tokenizer, max_seq_length, padding):
 def substitute_for_newline(text, repl=" [n] ", return_matches=True):
     pattern = "[\n\r]+"
 
-    matches = re.finditer(pattern, text)
+    matches = [x for x in re.finditer(pattern, text)]
 
     new_text = re.sub(pattern, repl, text)
 
