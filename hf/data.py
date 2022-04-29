@@ -297,6 +297,79 @@ def tokenize(example, tokenizer, max_seq_length, padding):
     return tokenized_inputs
 
 
+def tokenize_with_newline_replacement(
+    example, tokenizer, max_seq_length, padding, space_id, newline_id
+):
+    """
+    For deberta v2, space_id ("▁") is 250.
+    For deberta v3, space_id ("▁") is 507.
+    Both have newline_id = 128001
+    """
+
+    tokenized_inputs = tokenize(example, tokenizer, max_seq_length, padding)
+
+    pattern = "[\n\r]+"
+
+    matches = [x for x in re.finditer(pattern, example["pn_history"])]
+
+    if len(matches) == 0:
+        return tokenized_inputs
+
+    new_ids = []
+    new_tok_types = []
+    new_mask = []
+    new_labels = []
+    new_offsets = []
+    new_sequence_ids = []
+
+    zipped = zip(
+        tokenized_inputs["input_ids"],
+        tokenized_inputs["token_type_ids"],
+        tokenized_inputs["attention_mask"],
+        tokenized_inputs["labels"],
+        tokenized_inputs["offset_mapping"],
+        tokenized_inputs["sequence_ids"],
+    )
+
+    match_idx = 0
+    num_matches = len(matches)
+    for id_, t_id, mask, lab, (o1, o2), s_id in zipped:
+
+        # additional offset if there is a match
+        additional = 0
+
+        if match_idx < num_matches and s_id == 1:
+            m = matches[match_idx]
+            if o1 >= m.start() and o2 > m.end():
+                new_ids.extend([space_id, newline_id])
+                new_tok_types.extend([t_id, t_id])
+                new_mask.extend([mask, mask])
+                new_labels.extend([lab, lab])
+                new_offsets.extend(
+                    [(m.start(), m.start() + 1), (m.start() + 1, m.end())]
+                )
+                new_sequence_ids.extend([s_id, s_id])
+
+                match_idx += 1
+                additional += len(m.group(0))
+
+        new_ids.append(id_)
+        new_tok_types.append(t_id)
+        new_mask.append(mask)
+        new_labels.append(lab)
+        new_offsets.append((o1 + additional, o2))
+        new_sequence_ids.append(s_id)
+
+    return {
+        "input_ids": new_ids,
+        "token_type_ids": new_tok_types,
+        "attention_mask": new_mask,
+        "labels": new_labels,
+        "offset_mapping": new_offsets,
+        "sequence_ids": new_sequence_ids,
+    }
+
+
 def substitute_for_newline(text, repl=" [n] ", return_matches=True):
     pattern = "[\n\r]+"
 
@@ -347,7 +420,6 @@ class NERDataModule:
         train_df = train_df.merge(notes_df, on=["pn_num", "case_num"], how="left")
         train_df = fix_annotations(train_df)
 
-
         train_df["annotation"] = [literal_eval(x) for x in train_df.annotation]
         train_df["location"] = [literal_eval(x) for x in train_df.location]
 
@@ -357,10 +429,6 @@ class NERDataModule:
             )
             for x in train_df["feature_text"]
         ]
-
-        if self.cfg.get("newline_replacement"):
-            repl = self.cfg.get("newline_replacement")
-            train_df["pn_history"], train_df["matches"] = list(zip(*[substitute_for_newline(t, repl, return_matches=True) for t in train_df["pn_history"]]))
 
         if self.cfg.get("use_lowercase"):
             train_df["pn_history"] = train_df["pn_history"].str.lower()
@@ -384,17 +452,36 @@ class NERDataModule:
 
         self.dataset = Dataset.from_pandas(self.train_df)
 
-        self.dataset = self.dataset.map(
-            partial(
-                tokenize,
-                tokenizer=self.tokenizer,
-                max_seq_length=self.cfg["max_seq_length"],
-                padding=self.cfg["padding"],
-            ),
-            batched=False,
-            num_proc=self.cfg["num_proc"],
-            remove_columns=[],
-        )
+        if self.cfg.get("newline_replacement"):
+            vocab = self.tokenizer.vocab
+            newline_id = vocab[self.cfg["newline_replacement"].strip()]
+            space_id = vocab[self.cfg["space_token"]]
+
+            self.dataset = self.dataset.map(
+                partial(
+                    tokenize_with_newline_replacement,
+                    tokenizer=self.tokenizer,
+                    max_seq_length=self.cfg["max_seq_length"],
+                    padding=self.cfg["padding"],
+                    space_id=space_id,
+                    newline_id=newline_id,
+                ),
+                batched=False,
+                num_proc=self.cfg["num_proc"],
+                remove_columns=[],
+            )
+        else:
+            self.dataset = self.dataset.map(
+                partial(
+                    tokenize,
+                    tokenizer=self.tokenizer,
+                    max_seq_length=self.cfg["max_seq_length"],
+                    padding=self.cfg["padding"],
+                ),
+                batched=False,
+                num_proc=self.cfg["num_proc"],
+                remove_columns=[],
+            )
 
     def get_train_dataset(self, fold):
         idxs = list(chain(*[i for f, i in enumerate(self.fold_idxs) if f != fold]))
@@ -402,6 +489,13 @@ class NERDataModule:
 
     def get_eval_dataset(self, fold):
         return self.dataset.select(self.fold_idxs[fold])
+
+    def get_train_matches(self, fold):
+        idxs = set(chain(*[i for f, i in enumerate(self.fold_idxs) if f != fold]))
+        return [x for i, x in enumerate(self.matches) if i in idxs]
+
+    def get_eval_matches(self, fold):
+        return [x for i, x in enumerate(self.matches) if i in set(self.fold_idxs[fold])]
 
 
 @dataclass
@@ -418,10 +512,13 @@ class MLMDataModule:
         train_df = pd.read_csv(data_dir / "patient_notes.csv")
 
         self.tokenizer = AutoTokenizer.from_pretrained(self.cfg["model_name_or_path"])
-        
+
         if self.cfg.get("newline_replacement"):
             repl = self.cfg.get("newline_replacement")
-            train_df["pn_history"] = [substitute_for_newline(t, repl, return_matches=False) for t in train_df["pn_history"]]
+            train_df["pn_history"] = [
+                substitute_for_newline(t, repl, return_matches=False)
+                for t in train_df["pn_history"]
+            ]
             self.tokenizer.add_tokens([repl.strip()])
 
         if self.cfg.get("use_lowercase"):
@@ -431,15 +528,17 @@ class MLMDataModule:
         if self.cfg["DEBUG"]:
             self.train_df = self.train_df.sample(n=2500)
 
-        self.fold_idxs = create_folds(self.train_df.reset_index(drop=True), kfolds=self.cfg["k_folds"])
-
-        
+        self.fold_idxs = create_folds(
+            self.train_df.reset_index(drop=True), kfolds=self.cfg["k_folds"]
+        )
 
     def prepare_datasets(self, fold):
 
         self.dataset = DatasetDict()
-        
-        train_idxs = list(chain(*[i for f, i in enumerate(self.fold_idxs) if f != fold]))
+
+        train_idxs = list(
+            chain(*[i for f, i in enumerate(self.fold_idxs) if f != fold])
+        )
 
         self.dataset["train"] = Dataset.from_pandas(
             self.train_df.reset_index(drop=True).loc[train_idxs]
