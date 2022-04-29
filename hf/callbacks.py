@@ -88,7 +88,7 @@ class NewWandbCB(WandbCallback):
 
 
 class SaveCallback(TrainerCallback):
-    def __init__(self, min_score_to_save, metric_name, save_weights_only=True) -> None:
+    def __init__(self, min_score_to_save, metric_name, weights_only=True) -> None:
         """
         After evaluation, if the `metric_name` value is higher than
         `min_score_to_save` the model will get saved.
@@ -99,8 +99,7 @@ class SaveCallback(TrainerCallback):
 
         self.min_score_to_save = min_score_to_save
         self.metric_name = metric_name
-        self.save_weights_only = save_weights_only
-        self.save_dirs = deque()
+        self.weights_only = weights_only
 
     def on_evaluate(
         self,
@@ -125,7 +124,13 @@ class SaveCallback(TrainerCallback):
             logger.info(f"Saving model.")
             self.min_score_to_save = metric_value
             kwargs["model"].config.update({f"best_{self.metric_name}": metric_value})
-            control.should_save = True
+
+            if self.weights_only:
+                kwargs["model"].save_pretrained(args.output_dir)
+                kwargs["model"].config.save_pretrained(args.output_dir)
+                kwargs["tokenizer"].save_pretrained(args.output_dir)
+            else:
+                control.should_save = True
         else:
             logger.info("Not saving model.")
 
