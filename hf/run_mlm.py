@@ -28,7 +28,7 @@ from model import DebertaForMaskedLM, DebertaV2ForMaskedLM
 
 if __name__ == "__main__":
 
-    config_file = "c-rl-mlm-1.yml"
+    config_file = "c-dv1l-mlm-1-resume.yml"
     output = config_file.split(".")[0]
     cfg, args = get_configs(config_file)
     set_seed(args["seed"])
@@ -127,7 +127,10 @@ if __name__ == "__main__":
 
     trainer.remove_callback(WandbCallback)
 
-    trainer.train()
+    checkpoint = None
+    if args.resume_from_checkpoint is not None:
+        checkpoint = args.resume_from_checkpoint
+    trainer.train(resume_from_checkpoint=checkpoint)
 
     if cfg.get("use_swa"):
         trainer.model.load_state_dict(
