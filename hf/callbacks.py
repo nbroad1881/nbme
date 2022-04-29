@@ -125,7 +125,7 @@ class SaveCallback(TrainerCallback):
             logger.info(f"Saving model.")
             self.min_score_to_save = metric_value
             kwargs["model"].config.update({f"best_{self.metric_name}": metric_value})
-            state.should_save = True
+            control.should_save = True
         else:
             logger.info("Not saving model.")
 
