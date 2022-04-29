@@ -322,14 +322,16 @@ def tokenize_with_newline_replacement(
     new_offsets = []
     new_sequence_ids = []
 
-    zipped = zip(
-        tokenized_inputs["input_ids"],
-        tokenized_inputs["token_type_ids"],
-        tokenized_inputs["attention_mask"],
-        tokenized_inputs["labels"],
-        tokenized_inputs["offset_mapping"],
-        tokenized_inputs["sequence_ids"],
-    )
+    keys = [
+        "input_ids",
+        "token_type_ids",
+        "attention_mask",
+        "labels",
+        "offset_mapping",
+        "sequence_ids",
+    ]
+
+    zipped = zip(*[tokenized_inputs[k] for k in keys])
 
     match_idx = 0
     num_matches = len(matches)
@@ -367,6 +369,7 @@ def tokenize_with_newline_replacement(
         "labels": new_labels,
         "offset_mapping": new_offsets,
         "sequence_ids": new_sequence_ids,
+        **{k:v for k, v in tokenized_inputs.items() if k not in keys}
     }
 
 
@@ -448,6 +451,9 @@ class NERDataModule:
             use_auth_token=os.environ.get("HUGGINGFACE_HUB_TOKEN", True),
         )
 
+        if self.cfg.get("newline_replacement") and self.cfg.get("newline_replacement").strip() not in self.tokenizer.vocab:
+            self.tokenizer.add_tokens([self.cfg.get("newline_replacement").strip()])
+
     def prepare_datasets(self):
 
         self.dataset = Dataset.from_pandas(self.train_df)
@@ -489,13 +495,6 @@ class NERDataModule:
 
     def get_eval_dataset(self, fold):
         return self.dataset.select(self.fold_idxs[fold])
-
-    def get_train_matches(self, fold):
-        idxs = set(chain(*[i for f, i in enumerate(self.fold_idxs) if f != fold]))
-        return [x for i, x in enumerate(self.matches) if i in idxs]
-
-    def get_eval_matches(self, fold):
-        return [x for i, x in enumerate(self.matches) if i in set(self.fold_idxs[fold])]
 
 
 @dataclass

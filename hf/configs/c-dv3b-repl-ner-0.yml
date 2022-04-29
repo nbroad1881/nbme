@@ -1,14 +1,14 @@
 # RunArguments
-DEBUG: yes
+DEBUG: no
 n_gpu: 1
 k_folds: 10
-num_proc: 7
+num_proc: 4
 max_seq_length: 512
 padding: no
 stride: 0
-model_name_or_path: "microsoft/deberta-v3-base"
+model_name_or_path: "kisholas/deb-v3-l-idpt-newline-repl"
 data_dir: "./data"
-min_score_to_save: 0.8
+min_score_to_save: 0.88
 masking_prob: 0.1
 reinit_layers: 0
 layer_norm_eps: 1e-7
@@ -42,10 +42,10 @@ entity: nbroad
 group: round3
 tags:
   - mlm
-  - deb-v3-b
+  - deb-v3-l
   - " [n] "
 notes: >
-  deberta v3 b with newline replacement
+  deberta v3 l with newline replacement
 job_type: train
 
 # TrainingArguments
@@ -65,11 +65,11 @@ training_arguments:
   seed: 18
 
 # hyperparams
-  per_device_train_batch_size: 8
-  gradient_accumulation_steps: 1
+  per_device_train_batch_size: 4
+  gradient_accumulation_steps: 2
   gradient_checkpointing: no
   group_by_length: no
-  learning_rate: 3e-5
+  learning_rate: 9e-6
   weight_decay: .01
 
 # schedule + steps
@@ -116,9 +116,9 @@ training_arguments:
 # evaluation
   do_eval: yes
   evaluation_strategy: "steps"
-  eval_steps: 100
-  eval_delay: 0
-  per_device_eval_batch_size: 32
+  eval_steps: 300
+  eval_delay: 4500
+  per_device_eval_batch_size: 16
   do_predict:
   
 # hub
