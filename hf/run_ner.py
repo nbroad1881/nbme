@@ -23,13 +23,14 @@ from sift import SiftTrainer
 
 if __name__ == "__main__":
 
-    config_file = "j-dv3l-1.yml"
-    output = "nb-dv3l-1"
+    config_file = "c-dv1l-idpt-ner-0.yml"
+    output = config_file.split(".")[0]
     cfg, args = get_configs(config_file)
     set_seed(args["seed"])
     set_wandb_env_vars(cfg)
 
     datamodule = NERDataModule(cfg)
+    datamodule.prepare_datasets()
 
     for fold in range(cfg["k_folds"]):
 
@@ -40,13 +41,10 @@ if __name__ == "__main__":
 
         args = TrainingArguments(**args)
 
-        with args.main_process_first(desc="dataset pre-processing"):
-            datamodule.prepare_datasets(fold=fold)
-
         # Callbacks
         wb_callback = NewWandbCB(cfg)
         save_callback = SaveCallback(
-            min_score_to_save=cfg["min_score_to_save"], metric_name="eval_f1"
+            min_score_to_save=cfg["min_score_to_save"], metric_name="eval_f1", weights_only=False,
         )
         masking_callback = MaskingProbCallback(cfg["masking_prob"])
 
@@ -55,8 +53,8 @@ if __name__ == "__main__":
             callbacks.append(BasicSWACallback(start_after=cfg["swa_start_after"], save_every=cfg["swa_save_every"]))
 
 
-        train_dataset = datamodule.get_train_dataset()
-        eval_dataset = datamodule.get_eval_dataset()
+        train_dataset = datamodule.get_train_dataset(fold)
+        eval_dataset = datamodule.get_eval_dataset(fold)
         
         print(f"Train dataset length: {len(train_dataset)}")
         print(f"Eval dataset length: {len(eval_dataset)}")
