@@ -27,6 +27,7 @@ from utils import (
     DataCollatorWithMasking,
     reinit_model_weights,
     log_training_dynamics,
+    filter_down,
 )
 from config import get_configs
 from data import NERDataModule
@@ -228,15 +229,16 @@ def main():
     )
     completed_steps = 0
 
+    to_save = {}
+
     for epoch in range(args.num_train_epochs):
         model.train()
         if "wandb" in args.report_to:
             total_loss = 0
 
-        train_logits = np.zeros((args.num_train_epochs, num_examples, max_len), dtype=np.float16)
-        train_labels = np.zeros((args.num_train_epochs, num_examples, max_len), dtype=np.float16)
-        train_ids = np.array([])
-        start_idx = 0
+        train_logits = []
+        train_labels = []
+        train_ids = []
 
         for step, batch in enumerate(train_dataloader):
 
@@ -246,15 +248,16 @@ def main():
                 labels=batch["labels"]
             )
 
-            batch_size = batch["input_ids"].shape[0]
-            batch_len = batch["input_ids"].shape[-1]
+            temp_logits = outputs.logits.detach().cpu().numpy().ravel().tolist()
+            temp_labels = batch["labels"].detach().cpu().numpy().ravel().tolist()
+            temp_ids = np.tile(batch["id"].detach().cpu().numpy(), (1, outputs.logits.shape[1])).ravel().tolist()
 
+            # temp_logits, temp_ids, temp_labels = filter_down(temp_logits, temp_labels, temp_ids)
 
-            train_logits[epoch, start_idx:start_idx+batch_size, :batch_len] = outputs.logits.detach().cpu().numpy().squeeze()
-            train_labels[epoch, start_idx:start_idx+batch_size, :batch_len] = batch["labels"].detach().cpu().numpy().squeeze()
-            train_ids = np.concatenate([train_ids, batch["id"].detach().cpu().numpy().squeeze()])
+            train_logits.extend(temp_logits)
+            train_labels.extend(temp_labels)
+            train_ids.extend(temp_ids)
 
-            start_idx += batch_size
             
             loss = outputs.loss
             # We keep track of the loss at each epoch
@@ -276,9 +279,14 @@ def main():
             if completed_steps >= args.max_steps:
                 break
         
-        np.save(f"epoch{epoch}_logits.npy", train_logits)
-        np.save(f"epoch{epoch}_labels.npy", train_labels)
-        np.save(f"epoch{epoch}_ids.npy", np.array(train_ids))
+            log_training_dynamics(
+                        output_dir=args.output_dir,
+                        epoch=epoch,
+                        train_ids=train_ids,
+                        train_logits=train_logits,
+                        train_golds=train_labels,
+                    )
+
 
         del train_logits, train_labels, train_ids
         gc.collect()
