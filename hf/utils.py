@@ -468,6 +468,7 @@ def log_training_dynamics(
     For dataset cartography
     Save training dynamics (logits) from given epoch as records of a `.jsonl` file.
     """
+
     td_df = pd.DataFrame(
         {"guid": train_ids, f"logits_epoch_{epoch}": train_logits, "gold": train_golds}
     )
