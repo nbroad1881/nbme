@@ -396,12 +396,22 @@ class DebertaV2ForMaskedLM(DebertaPreTrainedModel):
 
         # Initialize weights and apply final processing
         self.post_init()
+    
+    def _resize_token_embeddings(self, new_num_tokens):
+        old_embeddings = self.get_input_embeddings()
+        new_embeddings = self._get_resized_embeddings(old_embeddings, new_num_tokens)
+        self.set_input_embeddings(new_embeddings)
 
-    def get_output_embeddings(self):
-        pass
+        # if word embeddings are not tied, make sure that lm head is resized as well
+        # import pdb; pdb.set_trace()
+        num2transfer = min(len(self.lm_predictions.lm_head.bias.data), new_num_tokens)
+        
+        temp = nn.Parameter(torch.zeros(new_num_tokens))
+        temp.data[:num2transfer] = self.lm_predictions.lm_head.bias.data[:num2transfer]
+        
+        self.lm_predictions.lm_head.bias = temp
 
-    def set_output_embeddings(self, new_embeddings):
-        pass
+        return self.get_input_embeddings()
 
     def forward(
         self,

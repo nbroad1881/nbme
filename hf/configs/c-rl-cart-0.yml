@@ -5,7 +5,7 @@ num_proc: 7
 max_seq_length: 
 padding: no
 stride: 0
-model_name_or_path: "kisholas/deb-v3-l-idpt-newline-repl"
+model_name_or_path: "roberta-large"
 data_dir: "./data"
 min_score_to_save: 0.88
 masking_prob: 0.1
@@ -26,21 +26,18 @@ use_gated: no
 gated_act_fn: "gelu_new"
 use_sift: no
 n_gpu: 1
-newline_replacement: " [n] "
-space_token: "▁"
-use_lowercase: no
+
 
 # WandB Config
 project: nbme-real
 entity: nbroad
-group: jarvis
+group: round3
 tags:
   - ner
-  - deb-v3-large
+  - roberta-large
   - cartog
-  - " [n] "
 notes: >
-  cartog dv3l
+  cartog rob-l
 job_type: train
 
 # TrainingArguments
@@ -60,7 +57,7 @@ training_arguments:
   seed: 18
 
 # hyperparams
-  per_device_train_batch_size: 8
+  per_device_train_batch_size: 4
   gradient_accumulation_steps: 2
   gradient_checkpointing: no
   group_by_length: yes
@@ -112,7 +109,7 @@ training_arguments:
   do_eval: yes
   evaluation_strategy: "epoch"
   eval_steps: 175
-  eval_delay: 0
+  eval_delay: 2000
   per_device_eval_batch_size: 32
   do_predict:
   

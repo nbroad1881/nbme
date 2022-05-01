@@ -28,7 +28,7 @@ from model import DebertaForMaskedLM, DebertaV2ForMaskedLM
 
 if __name__ == "__main__":
 
-    config_file = "c-dv1l-mlm-1-resume.yml"
+    config_file = "j-dv2xl-repl-mlm-0.yml"
     output = config_file.split(".")[0]
     cfg, args = get_configs(config_file)
     set_seed(args["seed"])
@@ -96,9 +96,10 @@ if __name__ == "__main__":
             cfg["model_name_or_path"], config=model_config
         )
 
+
     model.resize_token_embeddings(len(datamodule.tokenizer))
 
-    # freeze_layers(getattr(model, model.config.model_type.split("-")[0]), cfg["n_frozen_layers"], cfg.get("freeze_embeds", True))
+    freeze_layers(getattr(model, model.config.model_type.split("-")[0]), cfg["n_frozen_layers"], cfg.get("freeze_embeds", True))
 
     data_collator = OnlyMaskingCollator(
         tokenizer=datamodule.tokenizer,
