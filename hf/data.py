@@ -181,6 +181,52 @@ def fix_annotations(df):
     df.loc[14083, "annotation"] = '["headache generalized in her head"]'
     df.loc[14083, "location"] = '["56 64;156 179"]'
 
+    # df.loc[7528, 'location'] = '["840 871"]'
+    df.loc[7528, 'location'] = '["916 933","938 946"]'
+    df.loc[5172, 'location'] = '["25 27","50 54"]'
+    df.loc[9085, 'location'] = '["6 10"]'
+    # double check df.loc[11130, 'location'] = '["141 158","213 235"]'
+    df.loc[9838, 'location'] = '["236 243","251 262"]'
+    df.loc[8431, 'location'] = '["0 2","23 24"]'
+    # df.loc[8431, 'location'] = '["16 22"]'
+    df.loc[6696, 'location'] = '["279 287","289 311"]'
+    df.loc[5540, 'location'] = '["0 2","30 33"]'
+    df.loc[6979, 'location'] = '["502 508","529 542","857 870","875 887"]'
+    # df.loc[8129, 'location'] = '["680 733"]'
+    df.loc[8129, 'location'] = '[]'
+    df.loc[3010, 'location'] = '["769 772"]'
+    df.loc[11921, 'location'] = '[]'
+    # df.loc[11921, 'location'] = '["15 22"]'
+    df.loc[2837, 'location'] = '["0 5"]'
+    # df.loc[2837, 'location'] = '["6 7"]'
+
+    df.loc[7948, 'location'] = '["86 98"]'
+    df.loc[6891, 'location'] = '["93 104","618 626","157 168","207 226","619 626"]'
+
+    df.loc[12022, 'location'] = '["379 415"]'
+    df.loc[4040, 'location'] = '["117 121","131 144","146 152","160 174","180 217"]'
+
+    df.loc[3940, 'location'] = '["255 263","324 341","255 263"]'
+    df.loc[9270, 'location'] = '["64 74"]'
+    df.loc[2831, 'location'] = '["306 326"]'
+    df.loc[8053, 'location'] = '["11 12"]'
+    df.loc[7172, 'location'] = '["448 467", "635 641", "673 681"]'
+    df.loc[1424, 'location'] = '["74 88", "109 129", "109 129"]'
+    df.loc[7777, 'location'] = '["288 291", "292 306"]'
+    df.loc[9195, 'location'] = '["245 255", "311 327"]'
+    df.loc[6718, 'location'] = '["543 561"]'
+    df.loc[3938, 'location'] = '["114 121", "125 130", "140 164", "166 186", "196 222", "113 222", "166 186", "125 164"]'
+    df.loc[3937, 'location'] = '["239 250"]'
+    df.loc[7671, 'location'] = '["404 411", "565 572"]'
+    df.loc[8061, 'location'] = '["45 74",  "40 74"]'
+    df.loc[9580, 'location'] = '["148 167"]'
+    df.loc[9199, 'location'] = '[]'
+    df.loc[8280, 'location'] = '["89 105"]'
+
+    # investigate 13099, 5453, 8578, 2453, 6060, 9380, 3032, 658, 9199
+    # not guessing punctuation midway through (comma in 11461)
+    # not getting punctuation at end (7271, 4836)
+
     return df
 
 
@@ -247,6 +293,22 @@ def process_feature_text(text, use_custom_features=False):
         elif text == "Episodes-of-heart-racing":
             text = separator.join(
                 [text, "palpitations", "heart pounding", "heart beating fast"]
+            )
+        elif text == "Epigastric-discomfort":
+            text = separator.join(
+                ["Epigastric or stomach discomfort"]
+            )
+        elif text == "Chest-pain":
+            text = separator.join(
+                [text, "CP"]
+            )
+        elif text == "Vaginal-dryness":
+            text = separator.join(
+                [text, "uses lubrication"]
+            )
+        elif text == "Diminished-energy-or-feeling-drained":
+            text = separator.join(
+                [text, "fatigue"]
             )
 
     text = text.replace("-OR-", " or ")
