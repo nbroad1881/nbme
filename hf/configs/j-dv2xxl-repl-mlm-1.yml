@@ -3,7 +3,7 @@ DEBUG: no
 n_gpu: 1
 k_folds: 10
 num_proc: 7
-max_seq_length: 384
+max_seq_length: 352
 padding: no
 stride: 0
 model_name_or_path: "microsoft/deberta-v2-xxlarge"
@@ -33,8 +33,8 @@ swa_save_every: 25
 swa_lr: 1e-7
 
 # frozen
-n_frozen_layers: 24
-freeze_embeds: yes
+n_frozen_layers: 0
+freeze_embeds: no
 
 # WandB Config
 project: nbme-real
@@ -65,18 +65,18 @@ training_arguments:
   seed: 18
 
 # hyperparams
-  per_device_train_batch_size: 4
-  gradient_accumulation_steps: 128
-  gradient_checkpointing: no
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 32
+  gradient_checkpointing: yes
   group_by_length: no
-  learning_rate: 3e-5
+  learning_rate: 2e-5
   weight_decay: .01
 
 # schedule + steps
   num_train_epochs: 15
   lr_scheduler_type: linear
   warmup_ratio: 0
-  warmup_steps: 50
+  warmup_steps: 300
   max_steps: -1
 
 # optimizer
@@ -118,7 +118,7 @@ training_arguments:
   evaluation_strategy: "epoch"
   eval_steps: 2
   eval_delay: 0
-  per_device_eval_batch_size: 32
+  per_device_eval_batch_size: 16
   do_predict:
   
 # hub

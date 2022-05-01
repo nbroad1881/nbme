@@ -28,7 +28,7 @@ from model import DebertaForMaskedLM, DebertaV2ForMaskedLM
 
 if __name__ == "__main__":
 
-    config_file = "j-dv2xl-repl-mlm-0.yml"
+    config_file = "j-dv2xxl-repl-mlm-1.yml"
     output = config_file.split(".")[0]
     cfg, args = get_configs(config_file)
     set_seed(args["seed"])
@@ -110,8 +110,8 @@ if __name__ == "__main__":
     steps_per_epoch = len(train_dataset) // args.per_device_train_batch_size // cfg["n_gpu"] // args.gradient_accumulation_steps
     num_training_steps = steps_per_epoch * args.num_train_epochs
 
-    optimizer = create_optimizer(model, args)
-    scheduler = create_scheduler(num_training_steps, optimizer, args)
+    # optimizer = create_optimizer(model, args)
+    # scheduler = create_scheduler(num_training_steps, optimizer, args)
 
     trainer = Trainer(
         model=model,
@@ -123,7 +123,7 @@ if __name__ == "__main__":
         data_collator=data_collator,
         preprocess_logits_for_metrics=preprocess_logits_for_metrics,
         callbacks=callbacks,
-        optimizers=(optimizer, scheduler),
+        # optimizers=(optimizer, scheduler),
     )
 
     trainer.remove_callback(WandbCallback)
