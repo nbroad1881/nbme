@@ -182,51 +182,147 @@ def fix_annotations(df):
     df.loc[14083, "location"] = '["56 64;156 179"]'
 
     # df.loc[7528, 'location'] = '["840 871"]'
-    df.loc[7528, 'location'] = '["916 933","938 946"]'
-    df.loc[5172, 'location'] = '["25 27","50 54"]'
-    df.loc[9085, 'location'] = '["6 10"]'
+    df.loc[7528, "location"] = '["916 933","938 946"]'
+    df.loc[5172, "location"] = '["25 27","50 54"]'
+    df.loc[9085, "location"] = '["6 10"]'
     # double check df.loc[11130, 'location'] = '["141 158","213 235"]'
-    df.loc[9838, 'location'] = '["236 243","251 262"]'
-    df.loc[8431, 'location'] = '["0 2","23 24"]'
-    # df.loc[8431, 'location'] = '["16 22"]'
-    df.loc[6696, 'location'] = '["279 287","289 311"]'
-    df.loc[5540, 'location'] = '["0 2","30 33"]'
-    df.loc[6979, 'location'] = '["502 508","529 542","857 870","875 887"]'
-    # df.loc[8129, 'location'] = '["680 733"]'
-    df.loc[8129, 'location'] = '[]'
-    df.loc[3010, 'location'] = '["769 772"]'
-    df.loc[11921, 'location'] = '[]'
+    df.loc[9838, "location"] = '["236 243","251 262"]'
+    df.loc[8431, "location"] = '["0 2","23 24"]'
+    df.loc[8447, "location"] = '["16 22"]'
+    df.loc[6696, "location"] = '["279 287","289 311"]'
+    df.loc[5540, "location"] = '["0 2","30 33"]'
+    df.loc[6979, "location"] = '["502 508","529 542","857 870","875 887"]'
+    df.loc[8140, "location"] = '["680 733"]'
+    df.loc[8129, "location"] = "[]"  # this one has a span
+    df.loc[3010, "location"] = '["769 772"]'
+    df.loc[11921, "location"] = "[]"
     # df.loc[11921, 'location'] = '["15 22"]'
-    df.loc[2837, 'location'] = '["0 5"]'
-    # df.loc[2837, 'location'] = '["6 7"]'
+    df.loc[2837, "location"] = '["0 5"]'
 
-    df.loc[7948, 'location'] = '["86 98"]'
-    df.loc[6891, 'location'] = '["93 104","618 626","157 168","207 226","619 626"]'
+    df.loc[7948, "location"] = '["86 98"]'
+    df.loc[6891, "location"] = '["93 104","618 626","157 168","207 226","619 626"]'
 
-    df.loc[12022, 'location'] = '["379 415"]'
-    df.loc[4040, 'location'] = '["117 121","131 144","146 152","160 174","180 217"]'
+    df.loc[12022, "location"] = '["379 415"]'
+    df.loc[4040, "location"] = '["117 121","131 144","146 152","160 174","180 217"]'
 
-    df.loc[3940, 'location'] = '["255 263","324 341","255 263"]'
-    df.loc[9270, 'location'] = '["64 74"]'
-    df.loc[2831, 'location'] = '["306 326"]'
-    df.loc[8053, 'location'] = '["11 12"]'
-    df.loc[7172, 'location'] = '["448 467", "635 641", "673 681"]'
-    df.loc[1424, 'location'] = '["74 88", "109 129", "109 129"]'
-    df.loc[7777, 'location'] = '["288 291", "292 306"]'
-    df.loc[9195, 'location'] = '["245 255", "311 327"]'
-    df.loc[6718, 'location'] = '["543 561"]'
-    df.loc[3938, 'location'] = '["114 121", "125 130", "140 164", "166 186", "196 222", "113 222", "166 186", "125 164"]'
-    df.loc[3937, 'location'] = '["239 250"]'
-    df.loc[7671, 'location'] = '["404 411", "565 572"]'
-    df.loc[8061, 'location'] = '["45 74",  "40 74"]'
-    df.loc[9580, 'location'] = '["148 167"]'
-    df.loc[9199, 'location'] = '[]'
-    df.loc[8280, 'location'] = '["89 105"]'
+    df.loc[3940, "location"] = '["255 263","324 341","255 263"]'
+    df.loc[9270, "location"] = '["64 74"]'
+    df.loc[2831, "location"] = '["306 326"]'
+    df.loc[8053, "location"] = '["11 12"]'
+    df.loc[7172, "location"] = '["448 467", "635 641", "673 681"]'
+    df.loc[1424, "location"] = '["74 88", "109 129", "109 129"]'
+    df.loc[7777, "location"] = '["288 291", "292 306"]'
+    df.loc[9195, "location"] = '["245 255", "311 327"]'
+    df.loc[6718, "location"] = '["543 561"]'
+    df.loc[
+        3938, "location"
+    ] = '["114 121", "125 130", "140 164", "166 186", "196 222", "113 222", "166 186", "125 164"]'
+    df.loc[3937, "location"] = '["239 250"]'
+    df.loc[7671, "location"] = '["404 411", "565 572"]'
+    df.loc[8061, "location"] = '["45 74"]'
+    df.loc[9580, "location"] = '["148 167"]'
+    df.loc[9199, "location"] = "[]"
+    df.loc[8280, "location"] = '["89 105"]'
+    df.loc[1054, "location"] = '["827 846"]'
+    df.loc[1058, "location"] = "[]"
 
-    # investigate 13099, 5453, 8578, 2453, 6060, 9380, 3032, 658, 9199
+    df.loc[10756, "location"] = '["376 387"]'
+    # df.loc[10756, 'location'] = '["544 566"]'
+
+    df.loc[3787, "location"] = '["83 124"]'
+    df.loc[7278, "location"] = '["113 130"]'
+    # df.loc[7278, 'location'] = '["132 153"]'
+
+    df.loc[2829, "location"] = '["6 7"]'
+    df.loc[7243, "location"] = '["14 20"]'
+    df.loc[3930, "location"] = '["359 374"]'
+    df.loc[7957, "location"] = '["295 303", "316 337"]'
+    df.loc[7945, "location"] = '["45 46"]'
+    df.loc[11402, "location"] = '["31 38"]'
+    df.loc[8068, "location"] = '["217 230", "246 258", "209 230"]'
+
+    df.loc[2825, "location"] = '["533 548", "904 919"]'
+    df.loc[3920, "location"] = '["344 355", "344 355"]'
+
+    df.loc[3939, "location"] = '["44 65"]'
+    df.loc[7941, "location"] = '["269 290"]'
+    df.loc[11780, "location"] = '["81 92"]'
+    df.loc[6825, "location"] = '["703 717"]'
+    df.loc[13962, "location"] = '["55 64"]'
+    df.loc[11690, "location"] = '["28 35", "67 80"]'
+    df.loc[3927, "location"] = '["444 468"]'
+    df.loc[3019, "location"] = '["493 504"]'
+    df.loc[8065, "location"] = '["192 203"]'
+    df.loc[7246, "location"] = '["99 111"]'
+    df.loc[3021, "location"] = '["97 141", "35 78"]'
+    df.loc[7242, "location"] = '["113 124", "113 148"]'
+    df.loc[3931, "location"] = '["27 43"]'
+
+    df.loc[3174, "location"] = '["45 48", "55 59"]'
+    df.loc[972, "location"] = '["61 81"]'
+    df.loc[9587, "location"] = '["220 233"]'
+    df.loc[3011, "location"] = '["724 739"]'
+    df.loc[9998, "location"] = '["103 111", "606 614"]'
+    df.loc[7814, "location"] = '["171 184"]'
+    df.loc[8056, "location"] = '["111 131", "17 29", "94 109"]'
+    df.loc[3920, "location"] = '["344 355", "344 355"]'
+    df.loc[12685, "location"] = '[ "251 273", "232 246", "259 273"]'
+    df.loc[1265, "location"] = '["181 212"]'
+    df.loc[2356, "location"] = '["231 239"]'
+    df.loc[7255, "location"] = '["380 393"]'
+    df.loc[7632, "location"] = '["342 358"]'
+    df.loc[7022, "location"] = '["133 182"]'
+    df.loc[3610, "location"] = '["300 349", "356 401"]'
+    df.loc[9352, "location"] = '["205 233", "332 360"]'
+    df.loc[1535, "location"] = '["284 291", "568 578"]'
+    df.loc[
+        3326, "location"
+    ] = '["83 104", "109 141", "143 174", "234 238", "177 187", "212 229"]'
+    df.loc[8253, "location"] = '["58 77"]'
+    df.loc[2717, "location"] = "[]"
+    # df.loc[2717, 'location'] = '["310 326"]'
+    df.loc[3020, "location"] = '["198 219", "225 259", "178 196"]'
+    df.loc[8447, "location"] = '["16 22"]'
+    df.loc[740, "location"] = '["25 29"]'
+    df.loc[4073, "location"] = '["536 547"]'
+    df.loc[1026, "location"] = '["6 10"]'
+    df.loc[6737, "location"] = '["24 30"]'
+    df.loc[9171, "location"] = "[]"
+    df.loc[9172, "location"] = '["341 351", "366 380"]'
+    df.loc[1992, "location"] = '["341 349"]'
+    df.loc[7639, "location"] = "['11 12']"
+    df.loc[1910, "location"] = "['0 2']"
+    df.loc[11990, "location"] = "['28 29']"
+    df.loc[8578, "location"] = '["130 144"]'
+    df.loc[8579, "location"] = '["69 124"]'
+    df.loc[8340, "location"] = '["70 81"]'
+    # df.loc[8340, 'location'] = '["70 81"]'
+    df.loc[8349, "location"] = '["91 122"]'
+    df.loc[11905, "location"] = '["99 139"]'
+    df.loc[11908, "location"] = '["446 526"]'
+    df.loc[3015, "location"] = '["277 303"]'
+    df.loc[9199, "location"] = '["83 105"]'
+    df.loc[7814, "location"] = '["171 184"]'
+
+    # investigate 13099, 5453, 8578, 2453, 6060, 9380, 3032, 658, 9199, 3937, 10055, 6000
+    # 5453, 9184, 4679, 8776, 7633, 473, 8515, 8480, 6300, 9187, 8219, 9316, 9228, 9187
     # not guessing punctuation midway through (comma in 11461)
     # not getting punctuation at end (7271, 4836)
+    # n/v for nausea vomiting
+    # presents for 8263
+    # No blood in stool, no hemochezia
+    # FHx of depression or Family history of depression, mdd
+    # Heavy sweating (also reports?)
+    # No premenstrual symptoms (has not had)
+    # Recent upper respiratory symptoms
+    # loss of interest (endorses?)
+    # heavy periods or irregular periods (now?)
+    # hot flashes (endorses?)
+    # viral symptoms or rhinorrhea or scratchy throat (ST)
+    #  8 to 10 hours of acute pain (abdominal?)
+    # Duration x 1 day (pain?)
 
+    # Intermittent symptoms (episodes?)
     return df
 
 
@@ -258,7 +354,7 @@ def process_feature_text(text, use_custom_features=False):
             "17-year",
             "35-year",
         }:
-            text = separator.join([text, "yo", "y/o", "Y O", "y.o."])
+            text = separator.join([text + " y o year old"])
         elif "IUD" in text:
             text = separator.join([text, "intrauterine device"])
         elif text == "Unprotected-Sex":
@@ -273,7 +369,7 @@ def process_feature_text(text, use_custom_features=False):
                 ]
             )
         elif text == "1-day-duration-OR-2-days-duration":
-            text = separator.join([text, "yesterday", "day ago", "past day"])
+            text = separator.join([text, "yesterday", "day ago"])
         elif text == "Prior-episodes-of-diarrhea":
             text = separator.join(
                 [text, "loose stool", "diarrhea days ago", "soft", "watery stools"]
@@ -295,21 +391,39 @@ def process_feature_text(text, use_custom_features=False):
                 [text, "palpitations", "heart pounding", "heart beating fast"]
             )
         elif text == "Epigastric-discomfort":
-            text = separator.join(
-                ["Epigastric or stomach discomfort"]
-            )
+            text = separator.join(["Epigastric or stomach discomfort"])
         elif text == "Chest-pain":
-            text = separator.join(
-                [text, "CP"]
-            )
+            text = separator.join([text, "CP"])
         elif text == "Vaginal-dryness":
-            text = separator.join(
-                [text, "uses lubrication"]
-            )
+            text = separator.join([text, "uses lubrication"])
         elif text == "Diminished-energy-or-feeling-drained":
+            text = separator.join([text, "fatigue"])
+        elif (
+            text
+            == "Right-sided-LQ-abdominal-pain-or-Right-lower-quadrant-abdominal-pain"
+        ):
+            text = separator.join([text, "RLQ pain"])
+        elif text == "Global-headache-or-diffuse-headache":
+            text = separator.join([text, "HA"])
+        elif text == "Infertility-HX-or-Infertility-history":
+            text = separator.join([text, "P0"])
+        elif text == "Vomiting":
+            text = separator.join([text, "can't keep down food"])
+        elif text == "No-hair-changes-OR-no-nail-changes-OR-no-temperature-intolerance":
             text = separator.join(
-                [text, "fatigue"]
+                [
+                    "no hair or nail changes",
+                    "no hot/cold/temperature intolerance",
+                    "denies sweating",
+                ]
             )
+        elif text == "Intermittent-symptoms":
+            text = separator.join([text, "episodes"])
+        elif text == "Intermittent":
+            text = separator.join([text, "comes and goes"])
+        elif text == "No-chest-pain":
+            text = separator.join([text, "no angina"])
+        # only feature num 208 has g2p2 for "Female", g2p2 only shows up when no other indicator
 
     text = text.replace("-OR-", " or ")
     return text.replace("-", " ")
@@ -355,12 +469,18 @@ def tokenize(example, tokenizer, max_seq_length, padding):
                 labels[idx] = -100.0
 
     tokenized_inputs["labels"] = labels
+    
 
     return tokenized_inputs
 
 
 def tokenize_with_newline_replacement(
-    example, tokenizer, max_seq_length, padding, space_id, newline_id
+    example,
+    tokenizer,
+    max_seq_length,
+    padding,
+    space_id,
+    newline_id,
 ):
     """
     For deberta v2, space_id ("▁") is 250.
@@ -431,7 +551,7 @@ def tokenize_with_newline_replacement(
         "labels": new_labels,
         "offset_mapping": new_offsets,
         "sequence_ids": new_sequence_ids,
-        **{k:v for k, v in tokenized_inputs.items() if k not in keys}
+        **{k: v for k, v in tokenized_inputs.items() if k not in keys},
     }
 
 
@@ -513,12 +633,32 @@ class NERDataModule:
             use_auth_token=os.environ.get("HUGGINGFACE_HUB_TOKEN", True),
         )
 
-        if self.cfg.get("newline_replacement") and self.cfg.get("newline_replacement").strip() not in self.tokenizer.vocab:
+        if (
+            self.cfg.get("newline_replacement")
+            and self.cfg.get("newline_replacement").strip() not in self.tokenizer.vocab
+        ):
             self.tokenizer.add_tokens([self.cfg.get("newline_replacement").strip()])
+
+        if self.cfg.get("make_pseudolabels"):
+            self.unlabeled_df = (
+                pd.read_csv(data_dir / "train.csv", usecols=["id", "case_num", "feature_num"]) 
+                .merge(notes_df, on=["case_num"], how="right")
+                .merge(features_df, on=["feature_num"], how="left")
+            )
+
+            self.unlabeled_df = self.unlabeled_df.loc[
+                ~self.unlabeled_df.pn_num.isin(self.train_df.pn_num), :
+            ]
+
+            self.unlabeled_df = self.unlabeled_df.groupby('feature_num', group_keys=False).apply(lambda x: x.sample(min(len(x), 500)))
+            self.unlabeled_df["location"] = [[]]*len(self.unlabeled_df)
 
     def prepare_datasets(self):
 
-        self.dataset = Dataset.from_pandas(self.train_df)
+        if self.cfg.get("make_pseudolabels"):
+            self.dataset = Dataset.from_pandas(self.unlabeled_df)
+        else:
+            self.dataset = Dataset.from_pandas(self.train_df)
 
         if self.cfg.get("newline_replacement"):
             vocab = self.tokenizer.vocab
@@ -533,6 +673,7 @@ class NERDataModule:
                     padding=self.cfg["padding"],
                     space_id=space_id,
                     newline_id=newline_id,
+                    make_pseudolabels=self.cfg.get("make_pseudolabels"),
                 ),
                 batched=False,
                 num_proc=self.cfg["num_proc"],
@@ -545,6 +686,7 @@ class NERDataModule:
                     tokenizer=self.tokenizer,
                     max_seq_length=self.cfg["max_seq_length"],
                     padding=self.cfg["padding"],
+                    make_pseudolabels=self.cfg.get("make_pseudolabels"),
                 ),
                 batched=False,
                 num_proc=self.cfg["num_proc"],
