@@ -3,7 +3,7 @@ DEBUG: no
 n_gpu: 1
 k_folds: 10
 num_proc: 4
-max_seq_length: 512
+max_seq_length: 
 padding: no
 stride: 0
 model_name_or_path: "j-dv3l-repl-2-f0"
@@ -119,7 +119,7 @@ training_arguments:
   evaluation_strategy: "steps"
   eval_steps: 300
   eval_delay: 4500
-  per_device_eval_batch_size: 16
+  per_device_eval_batch_size: 128
   do_predict:
   
 # hub
