@@ -1,46 +1,51 @@
- # RunArguments
+# RunArguments
 DEBUG: no
-k_folds: 5
+n_gpu: 1
+k_folds: 10
 num_proc: 7
-max_seq_length: 
+max_seq_length: 384
 padding: no
 stride: 0
-model_name_or_path: "kisholas/deb-v3-l-idpt-newline-repl"
+model_name_or_path: "microsoft/deberta-v2-xxlarge"
 data_dir: "./data"
-min_score_to_save: 0.88
-masking_prob: 0.1
+min_score_to_save: 0.7
+masking_prob: 0.15
 reinit_layers: 0
 layer_norm_eps: 1e-7
-dropout: 0.2
+dropout: 0.0
 use_crf: no
 loss: 'bce'
-use_8bit: no
+use_8bit: yes
 use_layerwise_lr: no
 layer_lr_alpha: 0.8
 use_lookahead: no
-use_swa: no
-swa_lr: 1e-7
-swa_start: 0.8
-swa_steps: 50
+use_sift: no
 use_gated: no
 gated_act_fn: "gelu_new"
-use_sift: no
-n_gpu: 1
 newline_replacement: " [n] "
 space_token: "▁"
 use_lowercase: no
 
+# swa
+use_swa: no
+swa_start_after: 6800
+swa_save_every: 25
+swa_lr: 1e-7
+
+# frozen
+n_frozen_layers: 24
+freeze_embeds: yes
+
 # WandB Config
 project: nbme-real
 entity: nbroad
-group: jarvis
+group: round3
 tags:
-  - ner
-  - deb-v3-large
-  - cartog
+  - mlm
+  - deb-v2-xxl
   - " [n] "
 notes: >
-  cartog dv3l
+  deberta v2 xxl with newline replacement
 job_type: train
 
 # TrainingArguments
@@ -51,7 +56,7 @@ training_arguments:
   overwrite_output_dir: no
 
 # dataloader
-  dataloader_num_workers: 2
+  dataloader_num_workers: 4
   dataloader_pin_memory: yes
 
 # training
@@ -60,18 +65,18 @@ training_arguments:
   seed: 18
 
 # hyperparams
-  per_device_train_batch_size: 8
-  gradient_accumulation_steps: 2
+  per_device_train_batch_size: 4
+  gradient_accumulation_steps: 128
   gradient_checkpointing: no
-  group_by_length: yes
-  learning_rate: 1e-5
+  group_by_length: no
+  learning_rate: 3e-5
   weight_decay: .01
 
 # schedule + steps
-  num_train_epochs: 5
+  num_train_epochs: 15
   lr_scheduler_type: linear
-  warmup_ratio: 0.1
-  warmup_steps: 0
+  warmup_ratio: 0
+  warmup_steps: 50
   max_steps: -1
 
 # optimizer
@@ -89,7 +94,7 @@ training_arguments:
   logging_dir: <default>
   logging_strategy: steps
   logging_first_step: no
-  logging_steps: 100
+  logging_steps: 10
   logging_nan_inf_filter: <default>
 
 # dtype
@@ -102,22 +107,22 @@ training_arguments:
   tf32: no
 
 # saving (will be handled by callback)
-  save_strategy: "no"
+  save_strategy: "epoch"
   save_steps: 300000
   save_total_limit: 1
   load_best_model_at_end: no
-  metric_for_best_model: "eval_f1"
+  metric_for_best_model: "eval_accuracy"
 
 # evaluation
   do_eval: yes
   evaluation_strategy: "epoch"
-  eval_steps: 175
+  eval_steps: 2
   eval_delay: 0
   per_device_eval_batch_size: 32
   do_predict:
   
 # hub
-  push_to_hub: no
+  push_to_hub: yes
   hub_model_id:
   hub_strategy: "every_save"
   hub_token:
