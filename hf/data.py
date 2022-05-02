@@ -652,6 +652,8 @@ class NERDataModule:
 
             self.unlabeled_df = self.unlabeled_df.groupby('feature_num', group_keys=False).apply(lambda x: x.sample(min(len(x), 500)))
             self.unlabeled_df["location"] = [[]]*len(self.unlabeled_df)
+            if self.cfg["DEBUG"]:
+                self.unlabeled_df = self.unlabeled_df.sample(n=1000)
 
     def prepare_datasets(self):
 
@@ -673,7 +675,6 @@ class NERDataModule:
                     padding=self.cfg["padding"],
                     space_id=space_id,
                     newline_id=newline_id,
-                    make_pseudolabels=self.cfg.get("make_pseudolabels"),
                 ),
                 batched=False,
                 num_proc=self.cfg["num_proc"],
@@ -686,7 +687,6 @@ class NERDataModule:
                     tokenizer=self.tokenizer,
                     max_seq_length=self.cfg["max_seq_length"],
                     padding=self.cfg["padding"],
-                    make_pseudolabels=self.cfg.get("make_pseudolabels"),
                 ),
                 batched=False,
                 num_proc=self.cfg["num_proc"],
