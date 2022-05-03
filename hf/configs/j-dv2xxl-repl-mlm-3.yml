@@ -1,45 +1,51 @@
- # RunArguments
+# RunArguments
 DEBUG: no
-k_folds: 5
+n_gpu: 1
+k_folds: 10
 num_proc: 7
-max_seq_length: 512
+max_seq_length: 352
 padding: no
 stride: 0
-model_name_or_path: "kisholas/deb-v1-l-idpt"
-data_dir: "data"
-min_score_to_save: 0.88
+model_name_or_path: "microsoft/deberta-v2-xxlarge"
+data_dir: "./data"
+min_score_to_save: 0.7
 masking_prob: 0.15
-reinit_layers: 0
+reinit_layers: 12
 layer_norm_eps: 1e-7
-dropout: 0.1
+dropout: 0.0
 use_crf: no
 loss: 'bce'
-use_8bit: no
+use_8bit: yes
 use_layerwise_lr: no
 layer_lr_alpha: 0.8
 use_lookahead: no
-use_swa: no
-swa_lr: 1e-7
-swa_start: 0.8
-swa_steps: 50
 use_sift: no
-n_gpu: 1
-use_custom_features: yes
+use_gated: no
+gated_act_fn: "gelu_new"
+newline_replacement: " [n] "
+space_token: "▁"
+use_lowercase: no
 
+# swa
+use_swa: no
+swa_start_after: 6800
+swa_save_every: 25
+swa_lr: 1e-7
+
+# frozen
+n_frozen_layers: 0
+freeze_embeds: no
 
 # WandB Config
 project: nbme-real
 entity: nbroad
-group: jarvis
+group: round3
 tags:
-  - ner
-  - deb-v1-l
-  - new implementation
-  - custom features
-
+  - mlm
+  - deb-v2-xxl
+  - " [n] "
 notes: >
-  deb v1 l 15%
-  after cartography
+  deberta v2 xxl with newline replacement
 job_type: train
 
 # TrainingArguments
@@ -59,18 +65,18 @@ training_arguments:
   seed: 18
 
 # hyperparams
-  per_device_train_batch_size: 8
-  gradient_accumulation_steps: 1
-  gradient_checkpointing: no
-  group_by_length: yes
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 32
+  gradient_checkpointing: yes
+  group_by_length: no
   learning_rate: 9e-6
   weight_decay: .01
 
 # schedule + steps
-  num_train_epochs: 5
+  num_train_epochs: 15
   lr_scheduler_type: linear
-  warmup_ratio: 0.1
-  warmup_steps: 0
+  warmup_ratio: 0
+  warmup_steps: 300
   max_steps: -1
 
 # optimizer
@@ -88,7 +94,7 @@ training_arguments:
   logging_dir: <default>
   logging_strategy: steps
   logging_first_step: no
-  logging_steps: 50
+  logging_steps: 10
   logging_nan_inf_filter: <default>
 
 # dtype
@@ -100,18 +106,20 @@ training_arguments:
   fp16_full_eval: no
   tf32: no
 
-# saving
+# saving (will be handled by callback)
   save_strategy: "epoch"
-  save_steps: 10000000
+  save_steps: 300000
   save_total_limit: 1
-
+  load_best_model_at_end: no
+  metric_for_best_model: "eval_accuracy"
 
 # evaluation
   do_eval: yes
   evaluation_strategy: "epoch"
-  eval_steps: 500
-  per_device_eval_batch_size: 64
-  do_predict: no
+  eval_steps: 2
+  eval_delay: 0
+  per_device_eval_batch_size: 16
+  do_predict:
   
 # hub
   push_to_hub: yes
@@ -141,8 +149,6 @@ training_arguments:
   disable_tqdm: <default>
   remove_unused_columns: <default>
   label_names: <default>
-  load_best_model_at_end: <default>
-  metric_for_best_model: <default>
   greater_is_better: <default>
   ignore_data_skip: <default>
   sharded_ddp: <default>
