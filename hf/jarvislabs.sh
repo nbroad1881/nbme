@@ -49,3 +49,8 @@ export GIT_NAME=$( cat name.txt )
 
 git config --global user.email "$GIT_EMAIL"
 git config --global user.name "$GIT_NAME"
+
+
+# pseudolabels
+gdown https://drive.google.com/uc?id=1oJLLjs4yB9CJIQJw29p6GI4AQVDaHmJy
+mv pl_fold0.csv data/
