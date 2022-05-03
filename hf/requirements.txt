@@ -7,3 +7,4 @@ kaggle
 wandb
 bitsandbytes-cuda111
 scikit-learn
+gdown
