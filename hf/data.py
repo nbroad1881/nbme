@@ -648,6 +648,10 @@ class NERDataModule:
             self.unlabeled_df = self.unlabeled_df.groupby('feature_num', group_keys=False).apply(lambda x: x.sample(min(len(x), 500)))
             self.unlabeled_df["location"] = [[]]*len(self.unlabeled_df)
             
+        self.train_df["temp_id"] = list(range(len(self.train_df)))
+        self.train_df[["id", "temp_id"]].to_csv("id2id.csv", index=False)
+        self.train_df["id"] = self.train_df["temp_id"]
+        self.fold_idxs = create_folds(self.train_df, kfolds=self.cfg["k_folds"])
         if self.cfg.get("use_pseudolabels"):
             pl_df = pd.read_csv(data_dir/self.cfg.get("use_pseudolabels"))
             pl_df["annotation"] = [literal_eval(x) for x in pl_df.annotation]
@@ -655,12 +659,10 @@ class NERDataModule:
             pl_df = pl_df[~pl_df.pn_num.isin(self.train_df.pn_num)]
             pl_df = pl_df.groupby('feature_num', group_keys=False).apply(lambda x: x.sample(min(len(x), 400)))
             
-            self.train_df = pd.concat([self.train_df, pl_df], axis=0, ignore_index=True)
             
-        self.train_df["temp_id"] = list(range(len(self.train_df)))
-        self.train_df[["id", "temp_id"]].to_csv("id2id.csv", index=False)
-        self.train_df["id"] = self.train_df["temp_id"]
-        self.fold_idxs = create_folds(self.train_df, kfolds=self.cfg["k_folds"])
+            train_df_size = len(self.train_df)
+            self.train_df = pd.concat([self.train_df, pl_df], axis=0, ignore_index=True)
+            self.fold_idxs.append(list(range(train_df_size, len(self.train_df))))
 
     def prepare_datasets(self, cfg=None):
         
