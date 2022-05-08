@@ -568,21 +568,6 @@ def substitute_for_newline(text, repl=" [n] ", return_matches=True):
     return new_text
 
 
-def inverse_substitution(text, matches):
-
-    for m in matches:
-        text = text.replace(" [n] ", m.group(0), 1)
-
-    return text
-
-
-def insert_token(matches, offsets, input_ids, seq_ids, attention_mask):
-    new_inp_ids, new_seq_ids, new_mask = [], [], []
-
-    for m in matches:
-        m_start, m_end = m.start(), m.end()
-
-
 @dataclass
 class NERDataModule:
 
