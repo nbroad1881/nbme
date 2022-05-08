@@ -622,11 +622,6 @@ class NERDataModule:
         if self.cfg["DEBUG"]:
             self.train_df = self.train_df.sample(n=1000)
 
-        self.fold_idxs = create_folds(self.train_df, kfolds=self.cfg["k_folds"])
-
-        self.train_df["temp_id"] = list(range(len(self.train_df)))
-        self.train_df[["id", "temp_id"]].to_csv("id2id.csv", index=False)
-        self.train_df["id"] = self.train_df["temp_id"]
 
         self.tokenizer = AutoTokenizer.from_pretrained(
             self.cfg["model_name_or_path"],
@@ -652,8 +647,27 @@ class NERDataModule:
 
             self.unlabeled_df = self.unlabeled_df.groupby('feature_num', group_keys=False).apply(lambda x: x.sample(min(len(x), 500)))
             self.unlabeled_df["location"] = [[]]*len(self.unlabeled_df)
+            
+        self.train_df["temp_id"] = list(range(len(self.train_df)))
+        self.train_df[["id", "temp_id"]].to_csv("id2id.csv", index=False)
+        self.train_df["id"] = self.train_df["temp_id"]
+        self.fold_idxs = create_folds(self.train_df, kfolds=self.cfg["k_folds"])
+        if self.cfg.get("use_pseudolabels"):
+            pl_df = pd.read_csv(data_dir/self.cfg.get("use_pseudolabels"))
+            pl_df["annotation"] = [literal_eval(x) for x in pl_df.annotation]
+            pl_df["location"] = [literal_eval(x) for x in pl_df.location]
+            pl_df = pl_df[~pl_df.pn_num.isin(self.train_df.pn_num)]
+            pl_df = pl_df.groupby('feature_num', group_keys=False).apply(lambda x: x.sample(min(len(x), 400)))
+            
+            
+            train_df_size = len(self.train_df)
+            self.train_df = pd.concat([self.train_df, pl_df], axis=0, ignore_index=True)
+            self.fold_idxs.append(list(range(train_df_size, len(self.train_df))))
 
-    def prepare_datasets(self):
+    def prepare_datasets(self, cfg=None):
+        
+        if cfg:
+            self.cfg = cfg
 
         if self.cfg.get("make_pseudolabels"):
             self.dataset = Dataset.from_pandas(self.unlabeled_df)

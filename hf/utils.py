@@ -197,6 +197,58 @@ def kaggle_metrics(eval_prediction, dataset):
 
     return {"precision": results[0], "recall": results[1], "f1": results[2]}
 
+def kaggle_metrics2(eval_prediction, dataset):
+    """
+    For `compute_metrics`
+
+    Use partial for the args and kwargs to pass other data
+    into the `compute_metrics` function.
+    """
+    from string import punctuation
+    # eval_prediction[0] are the predictions
+    pred_idxs = get_location_predictions(expit(eval_prediction[0]), dataset)
+
+    all_labels = []
+    all_preds = []
+    for preds, locations, text in zip(
+        pred_idxs,
+        dataset["locations"],
+        dataset["pn_history"],
+    ):
+
+        num_chars = len(text)
+        char_labels = np.zeros((num_chars), dtype=bool)
+
+        for start, end in locations:
+            char_labels[start:end] = 1
+
+        char_preds = np.zeros((num_chars), dtype=bool)
+
+        for start, end in preds:
+            safety=0
+            while(True):
+                if start <= 0:
+                    start=0
+                    break
+                else:
+                    safety+=1
+                    if safety==4:
+                        break
+                    if text[start] in {'\n', '\r'}:
+                        start=start+1
+                    if text[start-1]==' ' or text[start-1] in punctuation or text[start].isupper():
+                        break
+                    else:
+                        start=start-1
+            char_preds[start:end] = 1
+
+        all_labels.extend(char_labels)
+        all_preds.extend(char_preds)
+
+    results = precision_recall_fscore_support(all_labels, all_preds, average="binary")
+
+    return {"precision": results[0], "recall": results[1], "f1": results[2]}
+
 
 @dataclass
 class DataCollatorWithMasking(DataCollatorForTokenClassification):
